@@ -1,8 +1,9 @@
 """
 Seeds a realistic South African demo business — Thabo's Plumbing &
 Maintenance — walking every stage of the vertical slice: business setup,
-leads, customers, quotes, jobs, invoices, payments and expenses. Used to
-populate the backend the Android app demo build points at.
+leads, customers, quotes, jobs, invoices, payments, expenses and
+suppliers. Used to populate the backend the Android app demo build
+points at.
 
 Usage: python manage.py seed_demo
 """
@@ -16,7 +17,7 @@ from django.utils import timezone
 
 from accounts.models import Business, Membership, User
 from crm.models import Customer, Lead
-from finance.models import Expense, Invoice, InvoiceLineItem, Payment
+from finance.models import Expense, Invoice, InvoiceLineItem, Payment, Supplier
 from finance.services import (
     assign_invoice_number_if_needed,
     recompute_expense_vat,
@@ -265,10 +266,27 @@ class Command(BaseCommand):
         recompute_invoice_totals(overdue_invoice, bump_updated_at=False)
         assign_invoice_number_if_needed(overdue_invoice)
 
+        # --- Suppliers ----------------------------------------------------
+        builders_warehouse = Supplier.objects.create(
+            business=business,
+            name="Builders Warehouse Kuils River",
+            contact_person="Annelie Botha",
+            phone="+27 21 903 4455",
+            email="kuilsriver@builderswarehouse.co.za",
+            notes="Main materials supplier — good account terms, 30 days.",
+        )
+        Supplier.objects.create(
+            business=business,
+            name="Cashbuild Delft",
+            phone="+27 21 954 2210",
+            notes="Backup supplier when Builders Warehouse is out of stock.",
+        )
+
         # --- Expenses — money out, against the Khumalo job and general overheads
         materials = Expense.objects.create(
             business=business,
             job=job,
+            supplier=builders_warehouse,
             category=Expense.CATEGORY_MATERIALS_STOCK,
             description="Copper piping, fittings and sealant — Builders",
             amount=Decimal("1840.50"),
@@ -307,3 +325,4 @@ class Command(BaseCommand):
         self.stdout.write(f"  invoices: {Invoice.objects.filter(business=business).count()}")
         self.stdout.write(f"  payments: {Payment.objects.filter(business=business).count()}")
         self.stdout.write(f"  expenses: {Expense.objects.filter(business=business).count()}")
+        self.stdout.write(f"  suppliers: {Supplier.objects.filter(business=business).count()}")

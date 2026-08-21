@@ -7,13 +7,14 @@ from rest_framework.response import Response
 from accounts.services import get_current_business
 from common.views import BusinessScopedViewSet
 
-from .models import Expense, Invoice, InvoiceLineItem, Payment
+from .models import Expense, Invoice, InvoiceLineItem, Payment, Supplier
 from .serializers import (
     ExpenseReceiptUploadSerializer,
     ExpenseSerializer,
     InvoiceLineItemSerializer,
     InvoiceSerializer,
     PaymentSerializer,
+    SupplierSerializer,
 )
 from .services import (
     assign_invoice_number_if_needed,
@@ -77,6 +78,11 @@ class PaymentViewSet(BusinessScopedViewSet):
         super().perform_destroy(instance)
         if invoice:
             recompute_invoice_payment_state(invoice)
+
+
+class SupplierViewSet(BusinessScopedViewSet):
+    queryset = Supplier.objects.all()
+    serializer_class = SupplierSerializer
 
 
 class ExpenseViewSet(BusinessScopedViewSet):

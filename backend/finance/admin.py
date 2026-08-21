@@ -24,9 +24,13 @@ class PaymentAdmin(admin.ModelAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ["date", "category", "description", "amount", "vat_amount", "job", "business"]
+    list_display = ["date", "category", "description", "amount", "vat_amount", "job", "supplier", "business"]
     list_filter = ["category", "business"]
     search_fields = ["description"]
 
 
-admin.site.register(Supplier)
+@admin.register(Supplier)
+class SupplierAdmin(admin.ModelAdmin):
+    list_display = ["name", "contact_person", "phone", "email", "business"]
+    list_filter = ["business"]
+    search_fields = ["name", "contact_person"]

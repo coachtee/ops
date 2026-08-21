@@ -8,7 +8,7 @@ from crm.models import Customer
 from sales.models import Quote
 from work.models import Job
 
-from .models import Expense, Invoice, InvoiceLineItem, Payment
+from .models import Expense, Invoice, InvoiceLineItem, Payment, Supplier
 
 
 class InvoiceLineItemSerializer(serializers.ModelSerializer):
@@ -123,10 +123,37 @@ class PaymentSerializer(serializers.ModelSerializer):
         return validate_same_business(value, self.context.get("business"))
 
 
+class SupplierSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
+
+    class Meta:
+        model = Supplier
+        fields = [
+            "id",
+            "name",
+            "contact_person",
+            "phone",
+            "email",
+            "notes",
+            "created_at",
+            "updated_at",
+            "deleted_at",
+        ]
+        read_only_fields = ["created_at", "updated_at", "deleted_at"]
+
+    def validate_name(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Supplier name is required.")
+        return value
+
+
 class ExpenseSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
     job_id = serializers.PrimaryKeyRelatedField(
         source="job", queryset=Job.objects.all(), required=False, allow_null=True
+    )
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        source="supplier", queryset=Supplier.objects.all(), required=False, allow_null=True
     )
 
     class Meta:
@@ -134,6 +161,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "job_id",
+            "supplier_id",
             "category",
             "description",
             "amount",
@@ -148,6 +176,9 @@ class ExpenseSerializer(serializers.ModelSerializer):
         read_only_fields = ["vat_amount", "receipt_image", "created_at", "updated_at", "deleted_at"]
 
     def validate_job_id(self, value):
+        return validate_same_business(value, self.context.get("business"))
+
+    def validate_supplier_id(self, value):
         return validate_same_business(value, self.context.get("business"))
 
     def validate_amount(self, value):

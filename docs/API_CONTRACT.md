@@ -60,19 +60,19 @@ read/write path is the sync endpoints in the next section** — Room is the sour
 device; these per-resource endpoints are not polled by the app during normal use.
 
 Resources: `leads`, `customers`, `quotes`, `quote-line-items`, `jobs`, `invoices`,
-`invoice-line-items`, `payments`, `expenses`. Field shapes are exactly the sync `fields`
-payloads documented below, plus the DRF-standard `id`, `created_at`, `updated_at`,
+`invoice-line-items`, `payments`, `expenses`, `suppliers`. Field shapes are exactly the sync
+`fields` payloads documented below, plus the DRF-standard `id`, `created_at`, `updated_at`,
 `deleted_at`. `expenses` additionally has `POST /api/expenses/{id}/receipt/` — see "Expense
 receipt attachments" at the end of this file.
 
 ## Sync
 
-Nine syncable models in this slice, referenced by these `model` keys:
+Ten syncable models in this slice, referenced by these `model` keys:
 `lead`, `customer`, `quote`, `quote_line_item`, `job`, `invoice`, `invoice_line_item`,
-`payment`, `expense`. All are scoped to the caller's business server-side; a client never
-sends `business`. Note `expense`'s `receipt_image` field travels through `GET pull` (so other
-devices learn a receipt was attached) but is never writable through `push` — see "Expense
-receipt attachments" below for how the photo itself gets there.
+`payment`, `supplier`, `expense`. All are scoped to the caller's business server-side; a
+client never sends `business`. Note `expense`'s `receipt_image` field travels through
+`GET pull` (so other devices learn a receipt was attached) but is never writable through
+`push` — see "Expense receipt attachments" below for how the photo itself gets there.
 
 ### `POST /api/sync/push/`
 ```json
@@ -90,7 +90,8 @@ receipt attachments" below for how the photo itself gets there.
 ```
 The client may list `changes` in any order — the server applies them within the batch in a
 fixed dependency order (customer/lead → quote → quote line item → job → invoice → invoice
-line item → payment → expense) so a line item (or an expense referencing a job) ahead of its
+line item → payment → supplier → expense) so a line item (or an expense referencing a job or
+supplier) ahead of its
 not-yet-applied parent in the list still resolves correctly. The one case this doesn't cover:
 converting a lead to a customer where
 the Customer.source_lead reference or the Lead.converted_customer reference points at a
@@ -154,7 +155,9 @@ it through the same conflict path once the pending push completes.
 
 **payment**: `customer_id*, invoice_id(null = payment on account), amount*, method*(cash|eft|card|snapscan|other), reference, paid_date*, notes`
 
-**expense**: `job_id, category*(materials_stock|fuel_travel|tools_equipment|rent|utilities|insurance|bank_charges|professional_fees|marketing|telephone_internet|vehicle|repairs_maintenance|wages_subcontractors|other), description, amount*, is_vat_applicable*, vat_amount(computed), date*, receipt_image(read-only URL or null — see addendum)`
+**supplier**: `name*, contact_person, phone, email, notes`
+
+**expense**: `job_id, supplier_id, category*(materials_stock|fuel_travel|tools_equipment|rent|utilities|insurance|bank_charges|professional_fees|marketing|telephone_internet|vehicle|repairs_maintenance|wages_subcontractors|other), description, amount*, is_vat_applicable*, vat_amount(computed), date*, receipt_image(read-only URL or null — see addendum)`
 
 `*` = required. `subtotal`/`vat_amount`/`total`/`line_total`/`amount_paid` are always
 recomputed server-side from line items/payments on write — a client may compute them locally

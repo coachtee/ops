@@ -67,15 +67,16 @@ V1 — see §11 for the milestone sequence.
 7. **Expenses** — capture (amount, VAT-inclusive extraction, category, optional job/project
    link), receipt photo attachment, offline-first the same as everything else. The "money out"
    half of "how is my business doing."
-8. **Home dashboard** — today's money in, money out, outstanding total, leads needing
+8. **Suppliers** — a simple contact record (name, contact person, phone, email, notes), linked
+   from Expense so "what have I bought from them" is just that supplier's expense history, not
+   a separate ledger.
+9. **Home dashboard** — today's money in, money out, outstanding total, leads needing
    follow-up, active jobs, quick actions. Answers "how is my business doing" in one glance.
-9. **Offline-first sync** — everything above must be usable with zero connectivity, with a
-   visible saved/syncing/synced/failed state per record.
+10. **Offline-first sync** — everything above must be usable with zero connectivity, with a
+    visible saved/syncing/synced/failed state per record.
 
 Designed in the domain model, targeted for the releases immediately following V1:
 
-10. Suppliers (Expense already has an optional `supplier` link on the backend; V1 doesn't yet
-    expose Supplier CRUD or a picker UI for it — see §11).
 11. Employees, shifts and payslips.
 12. Compliance reminders (SARS/VAT/provisional tax/CIPC deadlines — track & remind, never
     "submit").
@@ -192,8 +193,7 @@ background concern the owner is never blocked on.
   - `crm` — Lead, Customer.
   - `sales` — Quote, QuoteLineItem.
   - `work` — Job.
-  - `finance` — Invoice, InvoiceLineItem, Payment, Expense (Supplier modelled, not exposed via
-    API yet).
+  - `finance` — Invoice, InvoiceLineItem, Payment, Expense, Supplier.
   - `sync` — the generic push/pull machinery in §6, model-registry driven so new syncable
     models opt in with one line, not a bespoke endpoint each.
 - **Money:** `DecimalField`, never float. VAT is a flat 15% (current SA rate) computed
@@ -216,8 +216,8 @@ Business ─┬─< Membership >─ User
           │             ├─< Invoice ─┬─< InvoiceLineItem
           │             │            └─< Payment
           │             └─< Payment (also linkable directly to a Customer, on-account)
-          ├─< Expense (→ Supplier[modelled,V1.1 — not exposed], → Job, receipt photo)
-          ├─< Supplier                             [modelled, V1.1]
+          ├─< Expense (→ Supplier, → Job, receipt photo)
+          ├─< Supplier
           └─< Employee ─< Payslip                  [modelled, V1.2]
 ```
 
@@ -266,26 +266,30 @@ opposite direction from Quote/Invoice, see API_CONTRACT.md.
 16. Expense list (Money tab, with category filter)
 17. New/edit expense (amount, VAT toggle, category, optional job link, receipt capture)
 18. Expense detail (receipt photo view, edit, delete)
+19. Supplier list (reachable from Money tab)
+20. Supplier detail/edit (contact actions, notes, linked expense history)
 
-Not built this slice, designed for the next: Suppliers (and a supplier picker on Expense),
-Employees, Payslips, Compliance calendar, full Reports tab — these are additive screens on the
-same architecture, not a redesign.
+Not built this slice, designed for the next milestones: Employees, Payslips, Compliance
+calendar, full Reports tab — these are additive screens on the same architecture, not a
+redesign.
 
 ## 11. MVP development sequence
 
 1. ✅ **Vertical slice:** Business setup → Customer → Lead → Quote → Job → Invoice → Payment,
    offline-first on Android, syncing to the Django backend.
-2. ✅ **Expenses** (this milestone): capture, VAT-inclusive extraction, category, optional
-   job link, receipt attachment (a second sync phase, see §6), offline-first, Home/Money
-   dashboards gain "money out." **Suppliers is not yet built** — Expense's `supplier` link
-   stays backend-only, unexposed, until its own milestone (next).
-3. Suppliers: CRUD + sync + a picker on Expense, supplier-linked expense history.
-4. Reports tab: the question-shaped reports in §18 of the brief, built on data that already
-   exists by then (profit, biggest expense categories, VAT collected vs paid).
-5. People: Employees, shifts, payslips (starts simple — three fields and a payslip PDF, not a
+2. ✅ **Expenses:** capture, VAT-inclusive extraction, category, optional job link, receipt
+   attachment (a second sync phase, see §6), offline-first, Home/Money dashboards gain "money
+   out."
+3. ✅ **Suppliers** (this milestone): a simple contact record (name, contact person, phone,
+   email, notes) exposed via CRUD + sync, plus the picker on Expense that milestone 2
+   deliberately deferred — "what have I bought from them" is just that supplier's linked
+   expenses, not a new ledger or procurement workflow.
+4. People: Employees, shifts, payslips (starts simple — three fields and a payslip PDF, not a
    workforce-management system).
-6. Compliance: SARS/VAT/PAYE/CIPC deadline tracker with reminders and accountant-ready
+5. Compliance: SARS/VAT/PAYE/CIPC deadline tracker with reminders and accountant-ready
    exports — explicitly "helps you prepare", never "submits for you".
+6. Reports tab: the question-shaped reports in §18 of the brief, built on data that already
+   exists by then (profit, biggest expense categories, VAT collected vs paid).
 7. Hardening: conflict-resolution UX polish, backup/restore, multi-device QA, performance on
    low-end Android hardware and 2G/3G networks.
 

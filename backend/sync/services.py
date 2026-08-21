@@ -39,7 +39,8 @@ MODEL_APPLY_ORDER = {
     "invoice": 5,
     "invoice_line_item": 6,
     "payment": 7,
-    "expense": 8,  # after "job" — an expense may reference one
+    "supplier": 8,
+    "expense": 9,  # after "job" and "supplier" — an expense may reference either
 }
 
 

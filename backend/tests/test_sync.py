@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 
 from crm.models import Lead
-from finance.models import Expense, Invoice
+from finance.models import Expense, Invoice, Supplier
 from sales.models import Quote
 
 from .helpers import AuthenticatedAPITestCase
@@ -334,3 +334,76 @@ class ExpenseSyncTests(AuthenticatedAPITestCase):
         response = self.client.get("/api/sync/pull/")
         expense_change = next(c for c in response.data["changes"] if c["model"] == "expense" and c["id"] == str(expense_id))
         self.assertTrue(expense_change["fields"]["receipt_image"])
+
+
+class SupplierSyncTests(AuthenticatedAPITestCase):
+    def push(self, changes):
+        return self.client.post("/api/sync/push/", {"changes": changes}, format="json")
+
+    def test_push_new_supplier_is_accepted(self):
+        now = timezone.now()
+        supplier_id = uuid.uuid4()
+        response = self.push([change("supplier", supplier_id, now, {"name": "Cashbuild", "phone": "+27215551000"})])
+        result = response.data["results"][0]
+        self.assertEqual(result["status"], "accepted", response.data)
+        self.assertEqual(Supplier.objects.get(id=supplier_id).name, "Cashbuild")
+
+    def test_push_rejects_blank_name_without_side_effects(self):
+        now = timezone.now()
+        supplier_id = uuid.uuid4()
+        response = self.push([change("supplier", supplier_id, now, {"name": "  "})])
+        self.assertEqual(response.data["results"][0]["status"], "error")
+        self.assertFalse(Supplier.objects.filter(id=supplier_id).exists())
+
+    def test_replaying_the_same_supplier_push_is_idempotent(self):
+        now = timezone.now()
+        supplier_id = uuid.uuid4()
+        payload = [change("supplier", supplier_id, now, {"name": "Cashbuild"})]
+        self.push(payload)
+        second = self.push(payload)
+        self.assertEqual(second.data["results"][0]["status"], "conflict")
+        self.assertEqual(Supplier.objects.filter(id=supplier_id).count(), 1)
+
+    def test_older_supplier_update_does_not_overwrite_newer(self):
+        supplier_id = uuid.uuid4()
+        t1 = timezone.now()
+        t2 = t1 + timedelta(minutes=5)
+        self.push([change("supplier", supplier_id, t2, {"name": "Cashbuild HQ"})])
+        response = self.push([change("supplier", supplier_id, t1, {"name": "Cashbuild (old name)"})])
+        self.assertEqual(response.data["results"][0]["status"], "conflict")
+        self.assertEqual(Supplier.objects.get(id=supplier_id).name, "Cashbuild HQ")
+
+    def test_expense_and_its_supplier_in_one_batch_regardless_of_order(self):
+        now = timezone.now()
+        supplier_id = uuid.uuid4()
+        expense_id = uuid.uuid4()
+
+        supplier_change = change("supplier", supplier_id, now, {"name": "Cashbuild"})
+        expense_change = change(
+            "expense",
+            expense_id,
+            now,
+            {
+                "category": "materials_stock",
+                "amount": "230.00",
+                "is_vat_applicable": True,
+                "date": "2026-08-01",
+                "supplier_id": str(supplier_id),
+            },
+        )
+
+        # Expense listed before its not-yet-applied supplier.
+        response = self.push([expense_change, supplier_change])
+        self.assertEqual([r["status"] for r in response.data["results"]], ["accepted", "accepted"])
+        expense = Expense.objects.get(id=expense_id)
+        self.assertEqual(expense.supplier_id, supplier_id)
+
+    def test_pull_includes_supplier_and_scopes_to_business(self):
+        other_client, other_business = self.make_other_business_client()
+        Supplier.objects.create(business=other_business, name="Not Mine")
+
+        self.push([change("supplier", uuid.uuid4(), timezone.now(), {"name": "Mine Hardware"})])
+        response = self.client.get("/api/sync/pull/")
+        names = {c["fields"].get("name") for c in response.data["changes"] if c["model"] == "supplier"}
+        self.assertIn("Mine Hardware", names)
+        self.assertNotIn("Not Mine", names)

@@ -100,12 +100,19 @@ class Payment(BusinessOwnedModel):
 
 
 class Supplier(BusinessOwnedModel):
-    """Modelled for V1.1 (see docs/DISCOVERY.md); not exposed via API in this slice."""
+    """Who the business buys from — kept deliberately simple (a contact
+    record, not a procurement/vendor-management module). Linked from
+    Expense.supplier (see below) so "what have I bought from them" is just
+    that supplier's expenses, not a separate ledger."""
 
     name = models.CharField(max_length=255)
+    contact_person = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     email = models.EmailField(blank=True)
     notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
@@ -125,9 +132,8 @@ class Expense(BusinessOwnedModel):
     VAT, extracted for their SARS input-VAT records. See
     common/money.py:extract_vat_from_inclusive.
 
-    `supplier` is nullable and deliberately not exposed via the API in this
-    milestone — Suppliers (with its own CRUD/sync) is the next milestone;
-    the FK exists now so linking up later needs no migration.
+    `supplier` is nullable — most expenses (fuel, bank charges, a cash
+    purchase) have no supplier record at all, and that's fine.
     """
 
     CATEGORY_MATERIALS_STOCK = "materials_stock"

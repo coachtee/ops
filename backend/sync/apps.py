@@ -8,12 +8,13 @@ class SyncConfig(AppConfig):
     def ready(self):
         from crm.models import Customer, Lead
         from crm.serializers import CustomerSerializer, LeadSerializer
-        from finance.models import Expense, Invoice, InvoiceLineItem, Payment
+        from finance.models import Expense, Invoice, InvoiceLineItem, Payment, Supplier
         from finance.serializers import (
             ExpenseSerializer,
             InvoiceLineItemSerializer,
             InvoiceSerializer,
             PaymentSerializer,
+            SupplierSerializer,
         )
         from sales.models import Quote, QuoteLineItem
         from sales.serializers import QuoteLineItemSerializer, QuoteSerializer
@@ -30,4 +31,5 @@ class SyncConfig(AppConfig):
         registry.register("invoice", Invoice, InvoiceSerializer)
         registry.register("invoice_line_item", InvoiceLineItem, InvoiceLineItemSerializer)
         registry.register("payment", Payment, PaymentSerializer)
+        registry.register("supplier", Supplier, SupplierSerializer)
         registry.register("expense", Expense, ExpenseSerializer)
