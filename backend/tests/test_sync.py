@@ -1,11 +1,13 @@
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 
 from django.utils import timezone
 from rest_framework import status
 
 from crm.models import Lead
 from finance.models import Expense, Invoice, Supplier
+from people.models import Employee, Payslip
 from sales.models import Quote
 
 from .helpers import AuthenticatedAPITestCase
@@ -407,3 +409,133 @@ class SupplierSyncTests(AuthenticatedAPITestCase):
         names = {c["fields"].get("name") for c in response.data["changes"] if c["model"] == "supplier"}
         self.assertIn("Mine Hardware", names)
         self.assertNotIn("Not Mine", names)
+
+
+class EmployeeSyncTests(AuthenticatedAPITestCase):
+    def push(self, changes):
+        return self.client.post("/api/sync/push/", {"changes": changes}, format="json")
+
+    def test_push_new_employee_is_accepted(self):
+        now = timezone.now()
+        employee_id = uuid.uuid4()
+        response = self.push([change("employee", employee_id, now, {"name": "Nomsa Dlamini", "pay_rate": "85.00"})])
+        result = response.data["results"][0]
+        self.assertEqual(result["status"], "accepted", response.data)
+        self.assertEqual(Employee.objects.get(id=employee_id).name, "Nomsa Dlamini")
+
+    def test_push_rejects_blank_name_without_side_effects(self):
+        now = timezone.now()
+        employee_id = uuid.uuid4()
+        response = self.push([change("employee", employee_id, now, {"name": "  "})])
+        self.assertEqual(response.data["results"][0]["status"], "error")
+        self.assertFalse(Employee.objects.filter(id=employee_id).exists())
+
+    def test_replaying_the_same_employee_push_is_idempotent(self):
+        now = timezone.now()
+        employee_id = uuid.uuid4()
+        payload = [change("employee", employee_id, now, {"name": "Nomsa Dlamini"})]
+        self.push(payload)
+        second = self.push(payload)
+        self.assertEqual(second.data["results"][0]["status"], "conflict")
+        self.assertEqual(Employee.objects.filter(id=employee_id).count(), 1)
+
+    def test_older_employee_update_does_not_overwrite_newer(self):
+        employee_id = uuid.uuid4()
+        t1 = timezone.now()
+        t2 = t1 + timedelta(minutes=5)
+        self.push([change("employee", employee_id, t2, {"name": "Nomsa Dlamini (Senior)"})])
+        response = self.push([change("employee", employee_id, t1, {"name": "Nomsa Dlamini (old)"})])
+        self.assertEqual(response.data["results"][0]["status"], "conflict")
+        self.assertEqual(Employee.objects.get(id=employee_id).name, "Nomsa Dlamini (Senior)")
+
+    def test_pull_includes_employee_and_scopes_to_business(self):
+        other_client, other_business = self.make_other_business_client()
+        Employee.objects.create(business=other_business, name="Not Mine")
+
+        self.push([change("employee", uuid.uuid4(), timezone.now(), {"name": "Mine Employee"})])
+        response = self.client.get("/api/sync/pull/")
+        names = {c["fields"].get("name") for c in response.data["changes"] if c["model"] == "employee"}
+        self.assertIn("Mine Employee", names)
+        self.assertNotIn("Not Mine", names)
+
+
+class PayslipSyncTests(AuthenticatedAPITestCase):
+    def setUp(self):
+        super().setUp()
+        self.employee = Employee.objects.create(business=self.business, name="Nomsa Dlamini")
+
+    def push(self, changes):
+        return self.client.post("/api/sync/push/", {"changes": changes}, format="json")
+
+    def _payslip_fields(self, **overrides):
+        fields = {
+            "employee_id": str(self.employee.id),
+            "period_start": "2026-08-01",
+            "period_end": "2026-08-07",
+            "gross_pay": "3400.00",
+            "deductions": "150.00",
+        }
+        fields.update(overrides)
+        return fields
+
+    def test_push_new_payslip_is_accepted_and_net_pay_computed(self):
+        now = timezone.now()
+        payslip_id = uuid.uuid4()
+        response = self.push([change("payslip", payslip_id, now, self._payslip_fields())])
+        result = response.data["results"][0]
+        self.assertEqual(result["status"], "accepted", response.data)
+        self.assertEqual(result["server_record"]["net_pay"], "3250.00")
+        self.assertEqual(Payslip.objects.get(id=payslip_id).net_pay, Decimal("3250.00"))
+
+    def test_push_rejects_deductions_exceeding_gross_pay(self):
+        now = timezone.now()
+        payslip_id = uuid.uuid4()
+        response = self.push(
+            [change("payslip", payslip_id, now, self._payslip_fields(gross_pay="1000.00", deductions="1500.00"))]
+        )
+        self.assertEqual(response.data["results"][0]["status"], "error")
+        self.assertFalse(Payslip.objects.filter(id=payslip_id).exists())
+
+    def test_replaying_the_same_payslip_push_is_idempotent(self):
+        now = timezone.now()
+        payslip_id = uuid.uuid4()
+        payload = [change("payslip", payslip_id, now, self._payslip_fields())]
+        self.push(payload)
+        second = self.push(payload)
+        self.assertEqual(second.data["results"][0]["status"], "conflict")
+        self.assertEqual(Payslip.objects.filter(id=payslip_id).count(), 1)
+
+    def test_payslip_and_its_employee_in_one_batch_regardless_of_order(self):
+        now = timezone.now()
+        new_employee_id = uuid.uuid4()
+        payslip_id = uuid.uuid4()
+
+        employee_change = change("employee", new_employee_id, now, {"name": "Zola Mthembu"})
+        payslip_change = change(
+            "payslip", payslip_id, now, self._payslip_fields(employee_id=str(new_employee_id))
+        )
+
+        # Payslip listed before its not-yet-applied employee.
+        response = self.push([payslip_change, employee_change])
+        self.assertEqual([r["status"] for r in response.data["results"]], ["accepted", "accepted"])
+        payslip = Payslip.objects.get(id=payslip_id)
+        self.assertEqual(payslip.employee_id, new_employee_id)
+
+    def test_pull_includes_payslip_and_scopes_to_business(self):
+        other_client, other_business = self.make_other_business_client()
+        other_employee = Employee.objects.create(business=other_business, name="Other Employee")
+        Payslip.objects.create(
+            business=other_business,
+            employee=other_employee,
+            period_start="2026-08-01",
+            period_end="2026-08-07",
+            gross_pay=Decimal("1000.00"),
+        )
+
+        self.push([change("payslip", uuid.uuid4(), timezone.now(), self._payslip_fields())])
+        response = self.client.get("/api/sync/pull/")
+        payslip_ids = {c["id"] for c in response.data["changes"] if c["model"] == "payslip"}
+        mine = Payslip.objects.filter(business=self.business).values_list("id", flat=True)
+        self.assertTrue(all(str(pid) in payslip_ids for pid in mine))
+        other_ids = Payslip.objects.filter(business=other_business).values_list("id", flat=True)
+        self.assertFalse(any(str(pid) in payslip_ids for pid in other_ids))

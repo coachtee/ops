@@ -24,6 +24,8 @@ from finance.services import (
     recompute_invoice_payment_state,
     recompute_invoice_totals,
 )
+from people.models import Employee, Payslip
+from people.services import recompute_payslip_net_pay
 from sales.models import Quote, QuoteLineItem
 from sales.services import assign_quote_number_if_needed, recompute_quote_totals
 from work.models import Job
@@ -316,6 +318,41 @@ class Command(BaseCommand):
         )
         recompute_expense_vat(bank_charges, bump_updated_at=False)
 
+        # --- Employees & payslips -----------------------------------------
+        helper = Employee.objects.create(
+            business=business,
+            name="Bongani Sithole",
+            role="Plumber's assistant",
+            phone="+27 71 442 8890",
+            pay_rate_type=Employee.PAY_RATE_HOURLY,
+            pay_rate=Decimal("85.00"),
+            start_date=date(2024, 3, 4),
+            notes="Started as an apprentice, now works most jobs unsupervised.",
+        )
+
+        paid_payslip = Payslip.objects.create(
+            business=business,
+            employee=helper,
+            period_start=(today - timedelta(days=14)).date(),
+            period_end=(today - timedelta(days=8)).date(),
+            gross_pay=Decimal("3400.00"),
+            deductions=Decimal("150.00"),
+            deductions_note="UIF",
+            paid_date=(today - timedelta(days=7)).date(),
+        )
+        recompute_payslip_net_pay(paid_payslip, bump_updated_at=False)
+
+        draft_payslip = Payslip.objects.create(
+            business=business,
+            employee=helper,
+            period_start=(today - timedelta(days=7)).date(),
+            period_end=today.date(),
+            gross_pay=Decimal("3400.00"),
+            deductions=Decimal("150.00"),
+            deductions_note="UIF",
+        )
+        recompute_payslip_net_pay(draft_payslip, bump_updated_at=False)
+
         self.stdout.write(self.style.SUCCESS("Seeded Thabo's Plumbing & Maintenance."))
         self.stdout.write(f"  login: {DEMO_EMAIL} / Demo12345")
         self.stdout.write(f"  leads: {Lead.objects.filter(business=business).count()}")
@@ -326,3 +363,5 @@ class Command(BaseCommand):
         self.stdout.write(f"  payments: {Payment.objects.filter(business=business).count()}")
         self.stdout.write(f"  expenses: {Expense.objects.filter(business=business).count()}")
         self.stdout.write(f"  suppliers: {Supplier.objects.filter(business=business).count()}")
+        self.stdout.write(f"  employees: {Employee.objects.filter(business=business).count()}")
+        self.stdout.write(f"  payslips: {Payslip.objects.filter(business=business).count()}")

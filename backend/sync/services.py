@@ -41,6 +41,8 @@ MODEL_APPLY_ORDER = {
     "payment": 7,
     "supplier": 8,
     "expense": 9,  # after "job" and "supplier" — an expense may reference either
+    "employee": 10,
+    "payslip": 11,  # after "employee" — a payslip always references one
 }
 
 
@@ -155,6 +157,11 @@ def apply_change(business, change: dict) -> dict:
         from finance.services import recompute_expense_vat
 
         instance = recompute_expense_vat(instance, bump_updated_at=False)
+
+    if model_key == "payslip":
+        from people.services import recompute_payslip_net_pay
+
+        instance = recompute_payslip_net_pay(instance, bump_updated_at=False)
 
     if model_key in NUMBERED_MODELS and instance.deleted_at is None:
         instance = _assign_number(model_key, instance)

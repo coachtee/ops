@@ -60,19 +60,20 @@ read/write path is the sync endpoints in the next section** — Room is the sour
 device; these per-resource endpoints are not polled by the app during normal use.
 
 Resources: `leads`, `customers`, `quotes`, `quote-line-items`, `jobs`, `invoices`,
-`invoice-line-items`, `payments`, `expenses`, `suppliers`. Field shapes are exactly the sync
-`fields` payloads documented below, plus the DRF-standard `id`, `created_at`, `updated_at`,
-`deleted_at`. `expenses` additionally has `POST /api/expenses/{id}/receipt/` — see "Expense
-receipt attachments" at the end of this file.
+`invoice-line-items`, `payments`, `expenses`, `suppliers`, `employees`, `payslips`. Field
+shapes are exactly the sync `fields` payloads documented below, plus the DRF-standard `id`,
+`created_at`, `updated_at`, `deleted_at`. `expenses` additionally has `POST
+/api/expenses/{id}/receipt/` — see "Expense receipt attachments" at the end of this file.
 
 ## Sync
 
-Ten syncable models in this slice, referenced by these `model` keys:
+Twelve syncable models in this slice, referenced by these `model` keys:
 `lead`, `customer`, `quote`, `quote_line_item`, `job`, `invoice`, `invoice_line_item`,
-`payment`, `supplier`, `expense`. All are scoped to the caller's business server-side; a
-client never sends `business`. Note `expense`'s `receipt_image` field travels through
-`GET pull` (so other devices learn a receipt was attached) but is never writable through
-`push` — see "Expense receipt attachments" below for how the photo itself gets there.
+`payment`, `supplier`, `expense`, `employee`, `payslip`. All are scoped to the caller's
+business server-side; a client never sends `business`. Note `expense`'s `receipt_image` field
+travels through `GET pull` (so other devices learn a receipt was attached) but is never
+writable through `push` — see "Expense receipt attachments" below for how the photo itself
+gets there.
 
 ### `POST /api/sync/push/`
 ```json
@@ -90,8 +91,8 @@ client never sends `business`. Note `expense`'s `receipt_image` field travels th
 ```
 The client may list `changes` in any order — the server applies them within the batch in a
 fixed dependency order (customer/lead → quote → quote line item → job → invoice → invoice
-line item → payment → supplier → expense) so a line item (or an expense referencing a job or
-supplier) ahead of its
+line item → payment → supplier → expense → employee → payslip) so a line item (or an expense
+referencing a job or supplier, or a payslip referencing an employee) ahead of its
 not-yet-applied parent in the list still resolves correctly. The one case this doesn't cover:
 converting a lead to a customer where
 the Customer.source_lead reference or the Lead.converted_customer reference points at a
@@ -159,10 +160,24 @@ it through the same conflict path once the pending push completes.
 
 **expense**: `job_id, supplier_id, category*(materials_stock|fuel_travel|tools_equipment|rent|utilities|insurance|bank_charges|professional_fees|marketing|telephone_internet|vehicle|repairs_maintenance|wages_subcontractors|other), description, amount*, is_vat_applicable*, vat_amount(computed), date*, receipt_image(read-only URL or null — see addendum)`
 
-`*` = required. `subtotal`/`vat_amount`/`total`/`line_total`/`amount_paid` are always
-recomputed server-side from line items/payments on write — a client may compute them locally
-for instant offline UI, but the server value on the `server_record` echoed back is
-authoritative and the client overwrites its local value with it.
+**employee**: `name*, role, phone, email, pay_rate_type*(hourly|daily|monthly), pay_rate, start_date, notes`
+
+**payslip**: `employee_id*, period_start*, period_end*, gross_pay*, deductions, deductions_note, net_pay(computed), paid_date, notes`
+
+`*` = required. `subtotal`/`vat_amount`/`total`/`line_total`/`amount_paid`/`net_pay` are always
+recomputed server-side (from line items/payments, or — for `net_pay` —
+`gross_pay - deductions`) on write — a client may compute them locally for instant offline UI,
+but the server value on the `server_record` echoed back is authoritative and the client
+overwrites its local value with it.
+
+Payslips: `gross_pay` and `deductions` are both entered by the owner (or copied from whatever
+number their bookkeeper gives them) — this API deliberately does **not** compute PAYE/UIF tax
+tables, does not know SARS's tax brackets, and makes no claim of payroll-tax accuracy or
+e-filing (see DISCOVERY.md's explicit product-scope boundary). `deductions` cannot exceed
+`gross_pay`; `period_end` cannot be before `period_start`. `employee.pay_rate`/`pay_rate_type`
+are informational only — shown back to the owner as a reminder of what was agreed, never used
+to auto-compute a payslip's `gross_pay` (that would need hours/shift tracking, which this app
+deliberately doesn't do).
 
 VAT, quotes/invoices: flat 15%, **added on top** of `subtotal - discount_amount` when
 `is_vat_applicable` is true — the owner builds up a subtotal from line items and VAT is added.

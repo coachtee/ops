@@ -70,14 +70,18 @@ V1 — see §11 for the milestone sequence.
 8. **Suppliers** — a simple contact record (name, contact person, phone, email, notes), linked
    from Expense so "what have I bought from them" is just that supplier's expense history, not
    a separate ledger.
-9. **Home dashboard** — today's money in, money out, outstanding total, leads needing
-   follow-up, active jobs, quick actions. Answers "how is my business doing" in one glance.
-10. **Offline-first sync** — everything above must be usable with zero connectivity, with a
+9. **Employees & payslips** — a simple staff contact + agreed pay rate (Employee), and one pay
+   period's gross/deductions/net (Payslip) per employee. Deliberately no shift/hours tracking,
+   no leave management, no PAYE/UIF tax-table computation or e-filing claim — `net_pay` is
+   always `gross_pay - deductions`, both entered by the owner or their bookkeeper, same "derive
+   what can be derived, never let the two numbers drift" pattern as Expense.vat_amount.
+10. **Home dashboard** — today's money in, money out, outstanding total, leads needing
+    follow-up, active jobs, quick actions. Answers "how is my business doing" in one glance.
+11. **Offline-first sync** — everything above must be usable with zero connectivity, with a
     visible saved/syncing/synced/failed state per record.
 
 Designed in the domain model, targeted for the releases immediately following V1:
 
-11. Employees, shifts and payslips.
 12. Compliance reminders (SARS/VAT/provisional tax/CIPC deadlines — track & remind, never
     "submit").
 13. Reports as answers ("what did I make this month", "what are my biggest expenses").
@@ -194,6 +198,7 @@ background concern the owner is never blocked on.
   - `sales` — Quote, QuoteLineItem.
   - `work` — Job.
   - `finance` — Invoice, InvoiceLineItem, Payment, Expense, Supplier.
+  - `people` — Employee, Payslip.
   - `sync` — the generic push/pull machinery in §6, model-registry driven so new syncable
     models opt in with one line, not a bespoke endpoint each.
 - **Money:** `DecimalField`, never float. VAT is a flat 15% (current SA rate) computed
@@ -218,7 +223,7 @@ Business ─┬─< Membership >─ User
           │             └─< Payment (also linkable directly to a Customer, on-account)
           ├─< Expense (→ Supplier, → Job, receipt photo)
           ├─< Supplier
-          └─< Employee ─< Payslip                  [modelled, V1.2]
+          └─< Employee ─< Payslip
 ```
 
 Every business-owned entity: `id (UUID)`, `business`, `created_at`, `updated_at`,
@@ -245,6 +250,10 @@ opposite direction from Quote/Invoice, see API_CONTRACT.md.
    → amount, category, photo of the receipt → saved instantly, same "saved on this phone"
    badge as everything else → both the JSON record and the receipt photo sync when back
    online (the photo may lag a cycle behind the record itself, see §6).
+7. **Paying the helper on a Friday:** owner opens the employee (from Business Profile → Team)
+   → + New payslip → the period's dates, gross pay, any deductions (the number their
+   bookkeeper gave them for UIF, or nothing) → net pay is worked out for them → mark it paid
+   once the money's actually gone out → share a plain-text summary with the employee.
 
 ## 10. Screen list (V1 vertical slice, built now)
 
@@ -268,10 +277,12 @@ opposite direction from Quote/Invoice, see API_CONTRACT.md.
 18. Expense detail (receipt photo view, edit, delete)
 19. Supplier list (reachable from Money tab)
 20. Supplier detail/edit (contact actions, notes, linked expense history)
+21. Employee list (reachable from Business Profile/Settings)
+22. Employee detail/edit (contact actions, pay rate, linked payslip history)
+23. New/edit payslip (period, gross pay, deductions, computed net pay, mark paid, share)
 
-Not built this slice, designed for the next milestones: Employees, Payslips, Compliance
-calendar, full Reports tab — these are additive screens on the same architecture, not a
-redesign.
+Not built this slice, designed for the next milestones: Compliance calendar, full Reports tab
+— these are additive screens on the same architecture, not a redesign.
 
 ## 11. MVP development sequence
 
@@ -280,12 +291,15 @@ redesign.
 2. ✅ **Expenses:** capture, VAT-inclusive extraction, category, optional job link, receipt
    attachment (a second sync phase, see §6), offline-first, Home/Money dashboards gain "money
    out."
-3. ✅ **Suppliers** (this milestone): a simple contact record (name, contact person, phone,
-   email, notes) exposed via CRUD + sync, plus the picker on Expense that milestone 2
-   deliberately deferred — "what have I bought from them" is just that supplier's linked
-   expenses, not a new ledger or procurement workflow.
-4. People: Employees, shifts, payslips (starts simple — three fields and a payslip PDF, not a
-   workforce-management system).
+3. ✅ **Suppliers:** a simple contact record (name, contact person, phone, email, notes) exposed
+   via CRUD + sync, plus the picker on Expense that milestone 2 deliberately deferred — "what
+   have I bought from them" is just that supplier's linked expenses, not a new ledger or
+   procurement workflow.
+4. ✅ **Employees & Payslips** (this milestone): Employee (staff contact + agreed pay rate) and
+   Payslip (one pay period's gross pay, deductions, computed net pay, paid date) — starts
+   simple, not a workforce-management system: no shift/hours tracking, no leave, no PAYE/UIF
+   tax-table computation. `net_pay` is always derived (`gross_pay - deductions`), same pattern
+   as Expense.vat_amount, never entered by hand or trusted from the client.
 5. Compliance: SARS/VAT/PAYE/CIPC deadline tracker with reminders and accountant-ready
    exports — explicitly "helps you prepare", never "submits for you".
 6. Reports tab: the question-shaped reports in §18 of the brief, built on data that already
