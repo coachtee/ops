@@ -16,6 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import Business, Membership, User
+from compliance.models import ComplianceItem
 from crm.models import Customer, Lead
 from finance.models import Expense, Invoice, InvoiceLineItem, Payment, Supplier
 from finance.services import (
@@ -353,6 +354,37 @@ class Command(BaseCommand):
         )
         recompute_payslip_net_pay(draft_payslip, bump_updated_at=False)
 
+        # --- Compliance reminders ------------------------------------------
+        # Thabo isn't VAT-registered (see is_vat_registered=False above), so
+        # no VAT return reminder — only what actually applies to him: PAYE/
+        # UIF/SDL now that he has an employee, and CIPC's annual return that
+        # applies to any registered company regardless of VAT status.
+        today_date = today.date()
+        last_month_7th = (today_date.replace(day=1) - timedelta(days=1)).replace(day=7)
+        next_month_7th = (today_date.replace(day=28) + timedelta(days=7)).replace(day=7)
+
+        ComplianceItem.objects.create(
+            business=business,
+            category=ComplianceItem.CATEGORY_PAYE_UIF_SDL,
+            title="PAYE / UIF / SDL — EMP201",
+            due_date=last_month_7th,
+            completed_date=last_month_7th,
+            notes="Filed through the accountant, as usual.",
+        )
+        ComplianceItem.objects.create(
+            business=business,
+            category=ComplianceItem.CATEGORY_PAYE_UIF_SDL,
+            title="PAYE / UIF / SDL — EMP201",
+            due_date=next_month_7th,
+        )
+        ComplianceItem.objects.create(
+            business=business,
+            category=ComplianceItem.CATEGORY_CIPC_ANNUAL_RETURN,
+            title="CIPC annual return",
+            due_date=today_date + timedelta(days=90),
+            notes="Due within the anniversary month of registration.",
+        )
+
         self.stdout.write(self.style.SUCCESS("Seeded Thabo's Plumbing & Maintenance."))
         self.stdout.write(f"  login: {DEMO_EMAIL} / Demo12345")
         self.stdout.write(f"  leads: {Lead.objects.filter(business=business).count()}")
@@ -365,3 +397,4 @@ class Command(BaseCommand):
         self.stdout.write(f"  suppliers: {Supplier.objects.filter(business=business).count()}")
         self.stdout.write(f"  employees: {Employee.objects.filter(business=business).count()}")
         self.stdout.write(f"  payslips: {Payslip.objects.filter(business=business).count()}")
+        self.stdout.write(f"  compliance items: {ComplianceItem.objects.filter(business=business).count()}")

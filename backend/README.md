@@ -29,7 +29,7 @@ export OPS_DB_HOST=localhost OPS_DB_NAME=ops OPS_DB_USER=ops OPS_DB_PASSWORD=ops
 .venv/bin/python manage.py test tests
 ```
 
-119 tests: money/VAT math (including the inclusive-VAT extraction expenses use — the opposite
+135 tests: money/VAT math (including the inclusive-VAT extraction expenses use — the opposite
 direction from quotes/invoices), auth + registration, quote/invoice line-item totals
 recomputation, job/quote/invoice numbering, invoice payment-state transitions (including
 reversing a payment), expense validation (amount, future-dated, category, cross-tenant job
@@ -39,11 +39,15 @@ soft-delete leaves linked expenses intact, alphabetical ordering) and its cross-
 on `Expense.supplier_id`, employee CRUD (name required, pay rate can't be negative,
 soft-delete leaves payslip history intact) and payslip CRUD (net_pay always derived and never
 accepted from the client, deductions can't exceed gross pay or be negative, period_end can't
-precede period_start, cross-tenant guard on `Payslip.employee_id`), cross-tenant IDOR guards
-throughout, and the sync engine — accept/conflict/error, idempotent replay of a
-dropped-connection retry, out-of-order batch application (including a supplier referenced by
-an expense, and an employee referenced by a payslip, earlier in the same batch), and a full
-offline session (customer + invoice + line item + payment) synced in a single push.
+precede period_start, cross-tenant guard on `Payslip.employee_id`), compliance item CRUD
+(title required after stripping whitespace, category defaults to "other", due-date ordering,
+mark-completed, and a guard test asserting the model has no `filed_at`/`submitted_at`/
+`sars_reference`-shaped field — nothing here can be mistaken for actually filing with SARS or
+CIPC), cross-tenant IDOR guards throughout, and the sync engine — accept/conflict/error,
+idempotent replay of a dropped-connection retry, out-of-order batch application (including a
+supplier referenced by an expense, and an employee referenced by a payslip, earlier in the
+same batch), and a full offline session (customer + invoice + line item + payment) synced in a
+single push.
 
 ## What's deliberately not production-hardened yet
 
@@ -64,6 +68,10 @@ explicitly before any real deployment, not oversights in this slice.
 - `people/` — Employee, Payslip. `Payslip.net_pay` is always server-derived
   (`gross_pay - deductions`), same recompute-hook pattern as `Expense.vat_amount` — no
   PAYE/UIF tax-table computation or e-filing, by explicit product-scope design.
+- `compliance/` — ComplianceItem: a plain owner-managed deadline checklist (category, title,
+  due date, optional note, `completed_date` ticked off by hand). No relations to any other
+  model, no server-side recurrence/scheduling logic, no filing of any kind — see
+  API_CONTRACT.md's "Compliance items" note.
 - `sync/` — the offline-sync push/pull engine; `sync/registry.py` is where new syncable
   models get wired in.
 - `common/` — the shared `BusinessOwnedModel` base, VAT/money math, tenant-scoping helpers.

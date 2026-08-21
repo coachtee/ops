@@ -60,20 +60,21 @@ read/write path is the sync endpoints in the next section** — Room is the sour
 device; these per-resource endpoints are not polled by the app during normal use.
 
 Resources: `leads`, `customers`, `quotes`, `quote-line-items`, `jobs`, `invoices`,
-`invoice-line-items`, `payments`, `expenses`, `suppliers`, `employees`, `payslips`. Field
-shapes are exactly the sync `fields` payloads documented below, plus the DRF-standard `id`,
-`created_at`, `updated_at`, `deleted_at`. `expenses` additionally has `POST
-/api/expenses/{id}/receipt/` — see "Expense receipt attachments" at the end of this file.
+`invoice-line-items`, `payments`, `expenses`, `suppliers`, `employees`, `payslips`,
+`compliance-items`. Field shapes are exactly the sync `fields` payloads documented below, plus
+the DRF-standard `id`, `created_at`, `updated_at`, `deleted_at`. `expenses` additionally has
+`POST /api/expenses/{id}/receipt/` — see "Expense receipt attachments" at the end of this
+file.
 
 ## Sync
 
-Twelve syncable models in this slice, referenced by these `model` keys:
+Thirteen syncable models in this slice, referenced by these `model` keys:
 `lead`, `customer`, `quote`, `quote_line_item`, `job`, `invoice`, `invoice_line_item`,
-`payment`, `supplier`, `expense`, `employee`, `payslip`. All are scoped to the caller's
-business server-side; a client never sends `business`. Note `expense`'s `receipt_image` field
-travels through `GET pull` (so other devices learn a receipt was attached) but is never
-writable through `push` — see "Expense receipt attachments" below for how the photo itself
-gets there.
+`payment`, `supplier`, `expense`, `employee`, `payslip`, `compliance_item`. All are scoped to
+the caller's business server-side; a client never sends `business`. Note `expense`'s
+`receipt_image` field travels through `GET pull` (so other devices learn a receipt was
+attached) but is never writable through `push` — see "Expense receipt attachments" below for
+how the photo itself gets there.
 
 ### `POST /api/sync/push/`
 ```json
@@ -91,9 +92,11 @@ gets there.
 ```
 The client may list `changes` in any order — the server applies them within the batch in a
 fixed dependency order (customer/lead → quote → quote line item → job → invoice → invoice
-line item → payment → supplier → expense → employee → payslip) so a line item (or an expense
-referencing a job or supplier, or a payslip referencing an employee) ahead of its
-not-yet-applied parent in the list still resolves correctly. The one case this doesn't cover:
+line item → payment → supplier → expense → employee → payslip → compliance item) so a line
+item (or an expense referencing a job or supplier, or a payslip referencing an employee) ahead
+of its not-yet-applied parent in the list still resolves correctly. `compliance_item` has no
+relations to any other model, so its position in the order is arbitrary — it's simply applied
+last. The one case this doesn't cover:
 converting a lead to a customer where
 the Customer.source_lead reference or the Lead.converted_customer reference points at a
 record created earlier in the *same* batch on the *other* side of that pair — expected to
@@ -164,6 +167,8 @@ it through the same conflict path once the pending push completes.
 
 **payslip**: `employee_id*, period_start*, period_end*, gross_pay*, deductions, deductions_note, net_pay(computed), paid_date, notes`
 
+**compliance_item**: `category*(vat_return|paye_uif_sdl|provisional_tax|cipc_annual_return|other), title*, due_date*, completed_date, is_recurring, notes`
+
 `*` = required. `subtotal`/`vat_amount`/`total`/`line_total`/`amount_paid`/`net_pay` are always
 recomputed server-side (from line items/payments, or — for `net_pay` —
 `gross_pay - deductions`) on write — a client may compute them locally for instant offline UI,
@@ -178,6 +183,14 @@ e-filing (see DISCOVERY.md's explicit product-scope boundary). `deductions` cann
 are informational only — shown back to the owner as a reminder of what was agreed, never used
 to auto-compute a payslip's `gross_pay` (that would need hours/shift tracking, which this app
 deliberately doesn't do).
+
+Compliance items: a plain owner-managed reminder list — `category` only drives a suggested
+default `title` client-side, never a server-computed due date. Nothing in this API files,
+submits, or claims to know a business's actual status with SARS or CIPC; `completed_date` is
+set only by the owner ticking it off, never inferred. There is no recurrence engine — when the
+Android app offers to "add the next one" after an `is_recurring` item is marked done, that is a
+pre-filled *new* item the owner must explicitly confirm and save, not an automatic background
+creation.
 
 VAT, quotes/invoices: flat 15%, **added on top** of `subtotal - discount_amount` when
 `is_vat_applicable` is true — the owner builds up a subtotal from line items and VAT is added.

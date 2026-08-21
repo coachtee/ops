@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.utils import timezone
 from rest_framework import status
 
+from compliance.models import ComplianceItem
 from crm.models import Lead
 from finance.models import Expense, Invoice, Supplier
 from people.models import Employee, Payslip
@@ -539,3 +540,55 @@ class PayslipSyncTests(AuthenticatedAPITestCase):
         self.assertTrue(all(str(pid) in payslip_ids for pid in mine))
         other_ids = Payslip.objects.filter(business=other_business).values_list("id", flat=True)
         self.assertFalse(any(str(pid) in payslip_ids for pid in other_ids))
+
+
+class ComplianceItemSyncTests(AuthenticatedAPITestCase):
+    def push(self, changes):
+        return self.client.post("/api/sync/push/", {"changes": changes}, format="json")
+
+    def test_push_new_compliance_item_is_accepted(self):
+        now = timezone.now()
+        item_id = uuid.uuid4()
+        response = self.push(
+            [change("compliance_item", item_id, now, {"title": "CIPC annual return", "due_date": "2026-11-30"})]
+        )
+        result = response.data["results"][0]
+        self.assertEqual(result["status"], "accepted", response.data)
+        self.assertEqual(ComplianceItem.objects.get(id=item_id).title, "CIPC annual return")
+
+    def test_push_rejects_blank_title_without_side_effects(self):
+        now = timezone.now()
+        item_id = uuid.uuid4()
+        response = self.push([change("compliance_item", item_id, now, {"title": "  ", "due_date": "2026-11-30"})])
+        self.assertEqual(response.data["results"][0]["status"], "error")
+        self.assertFalse(ComplianceItem.objects.filter(id=item_id).exists())
+
+    def test_replaying_the_same_compliance_item_push_is_idempotent(self):
+        now = timezone.now()
+        item_id = uuid.uuid4()
+        payload = [change("compliance_item", item_id, now, {"title": "PAYE/UIF/SDL", "due_date": "2026-09-07"})]
+        self.push(payload)
+        second = self.push(payload)
+        self.assertEqual(second.data["results"][0]["status"], "conflict")
+        self.assertEqual(ComplianceItem.objects.filter(id=item_id).count(), 1)
+
+    def test_older_compliance_item_update_does_not_overwrite_newer(self):
+        item_id = uuid.uuid4()
+        t1 = timezone.now()
+        t2 = t1 + timedelta(minutes=5)
+        self.push([change("compliance_item", item_id, t2, {"title": "Renewed title", "due_date": "2026-09-07"})])
+        response = self.push(
+            [change("compliance_item", item_id, t1, {"title": "Stale title", "due_date": "2026-09-07"})]
+        )
+        self.assertEqual(response.data["results"][0]["status"], "conflict")
+        self.assertEqual(ComplianceItem.objects.get(id=item_id).title, "Renewed title")
+
+    def test_pull_includes_compliance_item_and_scopes_to_business(self):
+        other_client, other_business = self.make_other_business_client()
+        ComplianceItem.objects.create(business=other_business, title="Not Mine", due_date="2026-09-07")
+
+        self.push([change("compliance_item", uuid.uuid4(), timezone.now(), {"title": "Mine", "due_date": "2026-09-07"})])
+        response = self.client.get("/api/sync/pull/")
+        titles = {c["fields"].get("title") for c in response.data["changes"] if c["model"] == "compliance_item"}
+        self.assertIn("Mine", titles)
+        self.assertNotIn("Not Mine", titles)

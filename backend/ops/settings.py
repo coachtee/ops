@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "work",
     "finance",
     "people",
+    "compliance",
     "sync",
 ]
 

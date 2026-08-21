@@ -6,6 +6,8 @@ class SyncConfig(AppConfig):
     name = "sync"
 
     def ready(self):
+        from compliance.models import ComplianceItem
+        from compliance.serializers import ComplianceItemSerializer
         from crm.models import Customer, Lead
         from crm.serializers import CustomerSerializer, LeadSerializer
         from finance.models import Expense, Invoice, InvoiceLineItem, Payment, Supplier
@@ -37,3 +39,4 @@ class SyncConfig(AppConfig):
         registry.register("expense", Expense, ExpenseSerializer)
         registry.register("employee", Employee, EmployeeSerializer)
         registry.register("payslip", Payslip, PayslipSerializer)
+        registry.register("compliance_item", ComplianceItem, ComplianceItemSerializer)

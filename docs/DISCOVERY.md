@@ -75,15 +75,17 @@ V1 — see §11 for the milestone sequence.
    no leave management, no PAYE/UIF tax-table computation or e-filing claim — `net_pay` is
    always `gross_pay - deductions`, both entered by the owner or their bookkeeper, same "derive
    what can be derived, never let the two numbers drift" pattern as Expense.vat_amount.
-10. **Home dashboard** — today's money in, money out, outstanding total, leads needing
+10. **Compliance reminders** — a plain owner-managed deadline checklist (VAT return, PAYE/UIF/
+    SDL, provisional tax, CIPC annual return, or anything else the owner adds), each with a due
+    date, an optional note, and a tick-off when done. No SARS/CIPC filing, no computed tax
+    amounts, no auto-generated recurring schedule — "helps you prepare, never submits for you."
+11. **Home dashboard** — today's money in, money out, outstanding total, leads needing
     follow-up, active jobs, quick actions. Answers "how is my business doing" in one glance.
-11. **Offline-first sync** — everything above must be usable with zero connectivity, with a
+12. **Offline-first sync** — everything above must be usable with zero connectivity, with a
     visible saved/syncing/synced/failed state per record.
 
-Designed in the domain model, targeted for the releases immediately following V1:
+Designed in the domain model, targeted for the release immediately following V1:
 
-12. Compliance reminders (SARS/VAT/provisional tax/CIPC deadlines — track & remind, never
-    "submit").
 13. Reports as answers ("what did I make this month", "what are my biggest expenses").
 
 ## 4. Explicitly NOT in V1
@@ -199,6 +201,7 @@ background concern the owner is never blocked on.
   - `work` — Job.
   - `finance` — Invoice, InvoiceLineItem, Payment, Expense, Supplier.
   - `people` — Employee, Payslip.
+  - `compliance` — ComplianceItem.
   - `sync` — the generic push/pull machinery in §6, model-registry driven so new syncable
     models opt in with one line, not a bespoke endpoint each.
 - **Money:** `DecimalField`, never float. VAT is a flat 15% (current SA rate) computed
@@ -223,7 +226,8 @@ Business ─┬─< Membership >─ User
           │             └─< Payment (also linkable directly to a Customer, on-account)
           ├─< Expense (→ Supplier, → Job, receipt photo)
           ├─< Supplier
-          └─< Employee ─< Payslip
+          ├─< Employee ─< Payslip
+          └─< ComplianceItem
 ```
 
 Every business-owned entity: `id (UUID)`, `business`, `created_at`, `updated_at`,
@@ -254,6 +258,11 @@ opposite direction from Quote/Invoice, see API_CONTRACT.md.
    → + New payslip → the period's dates, gross pay, any deductions (the number their
    bookkeeper gave them for UIF, or nothing) → net pay is worked out for them → mark it paid
    once the money's actually gone out → share a plain-text summary with the employee.
+8. **Not missing a deadline:** owner opens Compliance (from Business Profile) → sees what's
+   coming up, oldest first → ticks off PAYE/UIF/SDL once their accountant confirms it's filed
+   → for a recurring item, the app offers to pre-fill the next one at the usual interval, which
+   the owner confirms and saves like any other new item — never created silently in the
+   background.
 
 ## 10. Screen list (V1 vertical slice, built now)
 
@@ -280,9 +289,11 @@ opposite direction from Quote/Invoice, see API_CONTRACT.md.
 21. Employee list (reachable from Business Profile/Settings)
 22. Employee detail/edit (contact actions, pay rate, linked payslip history)
 23. New/edit payslip (period, gross pay, deductions, computed net pay, mark paid, share)
+24. Compliance list (reachable from Business Profile/Settings, oldest-due first)
+25. New/edit compliance item (category, title, due date, notes, mark done)
 
-Not built this slice, designed for the next milestones: Compliance calendar, full Reports tab
-— these are additive screens on the same architecture, not a redesign.
+Not built this slice, designed for the next milestone: a full Reports tab — an additive
+screen on the same architecture, not a redesign.
 
 ## 11. MVP development sequence
 
@@ -295,13 +306,16 @@ Not built this slice, designed for the next milestones: Compliance calendar, ful
    via CRUD + sync, plus the picker on Expense that milestone 2 deliberately deferred — "what
    have I bought from them" is just that supplier's linked expenses, not a new ledger or
    procurement workflow.
-4. ✅ **Employees & Payslips** (this milestone): Employee (staff contact + agreed pay rate) and
+4. ✅ **Employees & Payslips:** Employee (staff contact + agreed pay rate) and
    Payslip (one pay period's gross pay, deductions, computed net pay, paid date) — starts
    simple, not a workforce-management system: no shift/hours tracking, no leave, no PAYE/UIF
    tax-table computation. `net_pay` is always derived (`gross_pay - deductions`), same pattern
    as Expense.vat_amount, never entered by hand or trusted from the client.
-5. Compliance: SARS/VAT/PAYE/CIPC deadline tracker with reminders and accountant-ready
-   exports — explicitly "helps you prepare", never "submits for you".
+5. ✅ **Compliance** (this milestone): ComplianceItem, a plain owner-managed deadline
+   checklist (category, title, due date, optional note, tick-off when done) — explicitly
+   "helps you prepare", never "submits for you". No SARS/CIPC filing, no computed tax amounts,
+   no server-side recurrence engine; accountant-ready exports are Reports-milestone territory,
+   not built here.
 6. Reports tab: the question-shaped reports in §18 of the brief, built on data that already
    exists by then (profit, biggest expense categories, VAT collected vs paid).
 7. Hardening: conflict-resolution UX polish, backup/restore, multi-device QA, performance on

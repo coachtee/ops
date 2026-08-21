@@ -43,6 +43,7 @@ MODEL_APPLY_ORDER = {
     "expense": 9,  # after "job" and "supplier" — an expense may reference either
     "employee": 10,
     "payslip": 11,  # after "employee" — a payslip always references one
+    "compliance_item": 12,  # no relations to any other model — order doesn't matter, but every model needs an entry
 }
 
 
