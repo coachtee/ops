@@ -233,3 +233,40 @@ not yet uploaded) until its parent expense reports `SYNCED`; only then does the 
 cycle attempt the multipart upload. This ordering is a client-side responsibility — the server
 enforces it passively, by 404ing an upload for an id it doesn't have — not something the sync
 protocol's dependency ordering (which only covers the JSON `changes` batch) handles for you.
+
+## Reports
+
+Not syncable models — these are read-only, computed-on-demand aggregations over data that
+already exists (`Payment`, `Expense`, `Invoice`), scoped to the caller's business the same way
+as everywhere else. Nothing here is a new stored table; there is no offline/local copy of a
+"report" the way there is of a lead or an invoice — these three endpoints are called live,
+same as the Django admin, not through the sync protocol. "Revenue" is **cash-basis** (actual
+payments received via `paid_date`), matching the Home dashboard's "money in this month"
+definition exactly — one financial vocabulary throughout the API, not an accrual figure based
+on invoice totals.
+
+### `GET /api/reports/profit-summary/?months=6`
+Per calendar month, oldest first, for the last `months` months (default 6, capped at 24,
+including the current partial month): `{"month": "YYYY-MM", "revenue": "...", "expenses":
+"...", "profit": "..."}`. A month with no activity is `"0.00"` across the board, not omitted.
+`revenue` = sum of `Payment.amount` with `paid_date` in that month; `expenses` = sum of
+`Expense.amount` with `date` in that month; `profit = revenue - expenses`. Add `&export=csv`
+for a `text/csv` download (`Month,Revenue,Expenses,Profit`) instead of JSON — deliberately
+**not** `?format=csv`, which is a query parameter DRF's own content negotiation reserves and
+would 404 on (no CSV renderer is registered), before this view's code ever ran.
+
+### `GET /api/reports/expense-categories/?period=this_month|all_time`
+Total spent per `Expense.category`, biggest first: `{"period": "...", "categories": [{"category":
+"materials_stock", "label": "Materials & stock", "total": "..."}, ...]}`. A category with
+nothing spent in the period is omitted, not listed at `"0.00"`. `period` defaults to, and
+silently falls back to, `this_month` for any other value.
+
+### `GET /api/reports/vat-summary/?since=YYYY-MM-DD&until=YYYY-MM-DD`
+Defaults to the current calendar month when `since`/`until` are omitted. `vat_collected` = sum
+of `Invoice.vat_amount` for invoices with `issue_date` in range, excluding `draft` and
+`cancelled` (an invoice that was never sent, or was withdrawn, was never actually VAT the
+business is liable for). `vat_paid` = sum of `Expense.vat_amount` for expenses with `date` in
+range. `net_vat_position = vat_collected - vat_paid` — informational only, for the owner's own
+VAT201 prep with their accountant/bookkeeper. This endpoint does not file, submit, or claim to
+compute an actual SARS liability, same compliance-honesty boundary as the `compliance_item`
+model above.

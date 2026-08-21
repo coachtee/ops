@@ -29,7 +29,7 @@ export OPS_DB_HOST=localhost OPS_DB_NAME=ops OPS_DB_USER=ops OPS_DB_PASSWORD=ops
 .venv/bin/python manage.py test tests
 ```
 
-135 tests: money/VAT math (including the inclusive-VAT extraction expenses use — the opposite
+151 tests: money/VAT math (including the inclusive-VAT extraction expenses use — the opposite
 direction from quotes/invoices), auth + registration, quote/invoice line-item totals
 recomputation, job/quote/invoice numbering, invoice payment-state transitions (including
 reversing a payment), expense validation (amount, future-dated, category, cross-tenant job
@@ -43,7 +43,12 @@ precede period_start, cross-tenant guard on `Payslip.employee_id`), compliance i
 (title required after stripping whitespace, category defaults to "other", due-date ordering,
 mark-completed, and a guard test asserting the model has no `filed_at`/`submitted_at`/
 `sars_reference`-shaped field — nothing here can be mistaken for actually filing with SARS or
-CIPC), cross-tenant IDOR guards throughout, and the sync engine — accept/conflict/error,
+CIPC), the three reports endpoints (cash-basis revenue/expenses/profit by month with correct
+zero-filling and a 24-month cap, biggest-expense-category ordering and period scoping,
+VAT-collected-vs-paid excluding draft/cancelled invoices, the CSV export, and — this is where a
+real bug was caught — that `?format=csv` 404s because DRF reserves that query parameter for
+its own content negotiation, hence the endpoint uses `?export=csv` instead), tenant scoping on
+every report, cross-tenant IDOR guards throughout, and the sync engine — accept/conflict/error,
 idempotent replay of a dropped-connection retry, out-of-order batch application (including a
 supplier referenced by an expense, and an employee referenced by a payslip, earlier in the
 same batch), and a full offline session (customer + invoice + line item + payment) synced in a
@@ -72,6 +77,10 @@ explicitly before any real deployment, not oversights in this slice.
   due date, optional note, `completed_date` ticked off by hand). No relations to any other
   model, no server-side recurrence/scheduling logic, no filing of any kind — see
   API_CONTRACT.md's "Compliance items" note.
+- `reports/` — no models: three read-only `APIView`s (not `ModelViewSet`s, since there's
+  nothing to CRUD) computing profit-by-month, expense-by-category, and VAT-collected-vs-paid
+  on demand from `Payment`/`Expense`/`Invoice`. Not part of the sync protocol at all — these
+  are live-queried, same as the Django admin, with no offline/local copy of a "report."
 - `sync/` — the offline-sync push/pull engine; `sync/registry.py` is where new syncable
   models get wired in.
 - `common/` — the shared `BusinessOwnedModel` base, VAT/money math, tenant-scoping helpers.

@@ -79,14 +79,17 @@ V1 — see §11 for the milestone sequence.
     SDL, provisional tax, CIPC annual return, or anything else the owner adds), each with a due
     date, an optional note, and a tick-off when done. No SARS/CIPC filing, no computed tax
     amounts, no auto-generated recurring schedule — "helps you prepare, never submits for you."
-11. **Home dashboard** — today's money in, money out, outstanding total, leads needing
+11. **Reports** — the question-shaped answers the brief asks for: "what did I make this
+    month" (profit, cash-basis: payments received minus expenses, last 6 months), "what are my
+    biggest expenses" (category breakdown, this month or all-time), and VAT collected vs paid
+    (for the owner's own VAT201 prep, not a computation this app files). No new stored model —
+    computed on demand from `Payment`/`Expense`/`Invoice`, the same data everything else
+    already uses. A CSV export exists server-side for the profit-by-month report; not yet
+    wired into the Android UI (see android/README.md's scope notes).
+12. **Home dashboard** — today's money in, money out, outstanding total, leads needing
     follow-up, active jobs, quick actions. Answers "how is my business doing" in one glance.
-12. **Offline-first sync** — everything above must be usable with zero connectivity, with a
+13. **Offline-first sync** — everything above must be usable with zero connectivity, with a
     visible saved/syncing/synced/failed state per record.
-
-Designed in the domain model, targeted for the release immediately following V1:
-
-13. Reports as answers ("what did I make this month", "what are my biggest expenses").
 
 ## 4. Explicitly NOT in V1
 
@@ -105,13 +108,18 @@ Designed in the domain model, targeted for the release immediately following V1:
 
 ## 5. Android information architecture
 
-Bottom navigation, four destinations plus one FAB — nothing nested more than two levels deep,
-because a phone screen and a nervous first-time user can't hold more than that.
+Bottom navigation, five destinations plus one FAB — nothing nested more than two levels deep,
+because a phone screen and a nervous first-time user can't hold more than that. Four of the
+five (Home, Leads, Customers, Money) were fixed from V1; Reports joined as a fifth once it was
+built, deliberately — unlike Suppliers/Employees/Compliance (each reachable one tap deeper,
+from Money or Business Profile, because they're occasional administrative tasks), "how is my
+business doing over a stretch of time" is a primary, recurring check-in a real owner returns to
+often enough to earn top-level placement next to Home's real-time snapshot.
 
 ```
-┌───────────────────────────────────────────────────────┐
-│  HOME   │  LEADS  │  CUSTOMERS  │  MONEY               │  ← bottom nav
-└───────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  HOME   │  LEADS  │  CUSTOMERS  │  MONEY   │  REPORTS            │  ← bottom nav
+└─────────────────────────────────────────────────────────────────┘
                     (+) quick-add FAB on Home:
                     New lead · New customer · New quote ·
                     New invoice · Record payment
@@ -131,11 +139,14 @@ CUSTOMERS
                      └─ Invoice detail → preview / send / Record payment
 MONEY
  └─ Outstanding invoices · Payments received · Expenses (list + capture, receipt attach)
+     └─ Suppliers (list → detail/edit, linked expense history)
+REPORTS
+ └─ Profit by month · Biggest expense categories · VAT collected vs paid — one screen
 ```
 
 Business Setup is a one-time flow shown before Home on first launch, and reachable later from
 a lightweight Settings screen (not a full settings module in V1 — just business profile,
-logo, and account/sync status).
+logo, account/sync status, and the Employees/Compliance entry points).
 
 ## 6. Offline/sync architecture
 
@@ -202,6 +213,8 @@ background concern the owner is never blocked on.
   - `finance` — Invoice, InvoiceLineItem, Payment, Expense, Supplier.
   - `people` — Employee, Payslip.
   - `compliance` — ComplianceItem.
+  - `reports` — no models of its own; read-only aggregation endpoints over `Payment`/
+    `Expense`/`Invoice` (profit summary, expense categories, VAT collected vs paid).
   - `sync` — the generic push/pull machinery in §6, model-registry driven so new syncable
     models opt in with one line, not a bespoke endpoint each.
 - **Money:** `DecimalField`, never float. VAT is a flat 15% (current SA rate) computed
@@ -263,6 +276,10 @@ opposite direction from Quote/Invoice, see API_CONTRACT.md.
    → for a recurring item, the app offers to pre-fill the next one at the usual interval, which
    the owner confirms and saves like any other new item — never created silently in the
    background.
+9. **"What did I actually make this month":** Reports tab → one scrollable screen, no further
+   navigation — profit by month (last 6 months, revenue minus expenses) at the top, biggest
+   expense categories this month below it, VAT collected vs paid for the current month at the
+   bottom, ready before a call with the bookkeeper.
 
 ## 10. Screen list (V1 vertical slice, built now)
 
@@ -291,9 +308,8 @@ opposite direction from Quote/Invoice, see API_CONTRACT.md.
 23. New/edit payslip (period, gross pay, deductions, computed net pay, mark paid, share)
 24. Compliance list (reachable from Business Profile/Settings, oldest-due first)
 25. New/edit compliance item (category, title, due date, notes, mark done)
-
-Not built this slice, designed for the next milestone: a full Reports tab — an additive
-screen on the same architecture, not a redesign.
+26. Reports tab (5th bottom-nav item): profit by month, biggest expense categories, VAT
+    collected vs paid — one scrollable screen, no further navigation
 
 ## 11. MVP development sequence
 
@@ -311,13 +327,16 @@ screen on the same architecture, not a redesign.
    simple, not a workforce-management system: no shift/hours tracking, no leave, no PAYE/UIF
    tax-table computation. `net_pay` is always derived (`gross_pay - deductions`), same pattern
    as Expense.vat_amount, never entered by hand or trusted from the client.
-5. ✅ **Compliance** (this milestone): ComplianceItem, a plain owner-managed deadline
+5. ✅ **Compliance:** ComplianceItem, a plain owner-managed deadline
    checklist (category, title, due date, optional note, tick-off when done) — explicitly
    "helps you prepare", never "submits for you". No SARS/CIPC filing, no computed tax amounts,
-   no server-side recurrence engine; accountant-ready exports are Reports-milestone territory,
-   not built here.
-6. Reports tab: the question-shaped reports in §18 of the brief, built on data that already
-   exists by then (profit, biggest expense categories, VAT collected vs paid).
+   no server-side recurrence engine.
+6. ✅ **Reports** (this milestone): the question-shaped reports the brief asks for, built on
+   data that already existed by now (profit by month, biggest expense categories, VAT
+   collected vs paid) — no new stored model, three read-only aggregation endpoints computed
+   from `Payment`/`Expense`/`Invoice` on demand. Cash-basis revenue (payments received),
+   matching Home's "money in" definition exactly. A CSV export exists for the profit-by-month
+   report server-side; not yet wired into the Android UI.
 7. Hardening: conflict-resolution UX polish, backup/restore, multi-device QA, performance on
    low-end Android hardware and 2G/3G networks.
 

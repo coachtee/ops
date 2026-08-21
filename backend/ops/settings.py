@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "finance",
     "people",
     "compliance",
+    "reports",
     "sync",
 ]
 
