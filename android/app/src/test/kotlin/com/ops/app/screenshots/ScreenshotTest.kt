@@ -268,7 +268,7 @@ class ScreenshotTest {
 
     @Test
     fun `01 business setup`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "01-business-setup") {
             OpsTheme {
                 BusinessSetupContent(
                     uiState = BusinessSetupUiState(
@@ -291,7 +291,7 @@ class ScreenshotTest {
 
     @Test
     fun `02 home dashboard`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "02-home-dashboard") {
             OpsTheme {
                 HomeContent(
                     uiState = HomeUiState(
@@ -314,7 +314,7 @@ class ScreenshotTest {
 
     @Test
     fun `03 leads`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "03-leads") {
             OpsTheme {
                 LeadListScreenContent(
                     uiState = LeadListUiState(filter = LeadListFilter.ALL, leads = listOf(leadFollowUp, leadNew)),
@@ -326,7 +326,7 @@ class ScreenshotTest {
 
     @Test
     fun `04 lead detail`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "04-lead-detail") {
             OpsTheme {
                 LeadDetailContent(
                     lead = leadFollowUp, onBack = {}, onUpdateStatus = {}, onUpdateFollowUpDate = {},
@@ -338,7 +338,7 @@ class ScreenshotTest {
 
     @Test
     fun `05 customer`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "05-customer") {
             OpsTheme {
                 CustomerDetailContent(
                     uiState = CustomerDetailUiState(
@@ -354,7 +354,7 @@ class ScreenshotTest {
 
     @Test
     fun `06 quote`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "06-quote") {
             OpsTheme {
                 QuotePreviewContent(
                     uiState = QuotePreviewUiState(quote = quote, lineItems = quoteLineItems, customer = customer, business = business),
@@ -366,7 +366,7 @@ class ScreenshotTest {
 
     @Test
     fun `07 invoice`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "07-invoice") {
             OpsTheme {
                 InvoicePreviewContent(
                     uiState = InvoicePreviewUiState(invoice = invoice, lineItems = invoiceLineItems, payments = listOf(payment), customer = customer, business = business),
@@ -378,7 +378,7 @@ class ScreenshotTest {
 
     @Test
     fun `08 money in and out`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "08-money-in-and-out") {
             OpsTheme {
                 MoneyContent(
                     uiState = MoneyUiState(
@@ -395,7 +395,7 @@ class ScreenshotTest {
 
     @Test
     fun `09 expense`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "09-expense") {
             OpsTheme {
                 ExpenseEditContent(
                     uiState = ExpenseEditUiState(
@@ -413,7 +413,7 @@ class ScreenshotTest {
 
     @Test
     fun `10 expense receipt capture`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "10-expense-receipt-capture") {
             OpsTheme {
                 ExpenseEditContent(
                     uiState = ExpenseEditUiState(
@@ -434,7 +434,7 @@ class ScreenshotTest {
 
     @Test
     fun `11 suppliers`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "11-suppliers") {
             OpsTheme {
                 SupplierListContent(suppliers = suppliers, onBack = {}, onOpenSupplier = {}, onNewSupplier = {})
             }
@@ -443,7 +443,7 @@ class ScreenshotTest {
 
     @Test
     fun `12 employees`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "12-employees") {
             OpsTheme {
                 EmployeeListContent(employees = employees, onBack = {}, onOpenEmployee = {}, onNewEmployee = {})
             }
@@ -452,7 +452,7 @@ class ScreenshotTest {
 
     @Test
     fun `13 payslip`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "13-payslip") {
             OpsTheme {
                 PayslipEditContent(
                     uiState = PayslipEditUiState(
@@ -469,7 +469,7 @@ class ScreenshotTest {
 
     @Test
     fun `14 compliance`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "14-compliance") {
             OpsTheme {
                 ComplianceListContent(complianceItems = complianceItems, onBack = {}, onOpenItem = {}, onNewItem = {})
             }
@@ -479,7 +479,7 @@ class ScreenshotTest {
     @Test
     fun `15 reports`() {
         val thisMonth = YearMonth.of(2026, 8)
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "15-reports") {
             OpsTheme {
                 ReportsContent(
                     ReportsUiState(
@@ -505,7 +505,7 @@ class ScreenshotTest {
 
     @Test
     fun `16 settings and profile`() {
-        paparazzi.snapshot {
+        paparazzi.snapshot(name = "16-settings-and-profile") {
             OpsTheme {
                 BusinessProfileContent(
                     business = business, isSaving = false, errorMessage = null, pendingLogoBytes = null,
