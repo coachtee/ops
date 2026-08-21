@@ -29,11 +29,15 @@ export OPS_DB_HOST=localhost OPS_DB_NAME=ops OPS_DB_USER=ops OPS_DB_PASSWORD=ops
 .venv/bin/python manage.py test tests
 ```
 
-42 tests: money/VAT math, auth + registration, quote/invoice line-item totals recomputation,
-job/quote/invoice numbering, invoice payment-state transitions (including reversing a
-payment), cross-tenant IDOR guards, and the sync engine — accept/conflict/error, idempotent
-replay of a dropped-connection retry, out-of-order batch application, and a full offline
-session (customer + invoice + line item + payment) synced in a single push.
+68 tests: money/VAT math (including the inclusive-VAT extraction expenses use — the opposite
+direction from quotes/invoices), auth + registration, quote/invoice line-item totals
+recomputation, job/quote/invoice numbering, invoice payment-state transitions (including
+reversing a payment), expense validation (amount, future-dated, category, cross-tenant job
+link) and receipt upload (incl. the multipart endpoint rejecting a non-image file and 404ing
+for another business's expense), cross-tenant IDOR guards, and the sync engine —
+accept/conflict/error, idempotent replay of a dropped-connection retry, out-of-order batch
+application, an expense computing VAT through the sync path too, and a full offline session
+(customer + invoice + line item + payment) synced in a single push.
 
 ## What's deliberately not production-hardened yet
 
@@ -48,8 +52,10 @@ explicitly before any real deployment, not oversights in this slice.
 - `crm/` — Lead, Customer.
 - `sales/` — Quote, QuoteLineItem.
 - `work/` — Job ("work" in the product UI).
-- `finance/` — Invoice, InvoiceLineItem, Payment (+ Supplier/Expense, modelled for V1.1, not
-  exposed via API yet).
+- `finance/` — Invoice, InvoiceLineItem, Payment, Expense (+ Supplier, modelled for the next
+  milestone, not exposed via API yet). Expense's `receipt` action
+  (`POST /api/expenses/{id}/receipt/`) is a separate multipart upload, not part of the JSON
+  sync protocol — see API_CONTRACT.md's "Expense receipt attachments" addendum.
 - `sync/` — the offline-sync push/pull engine; `sync/registry.py` is where new syncable
   models get wired in.
 - `common/` — the shared `BusinessOwnedModel` base, VAT/money math, tenant-scoping helpers.

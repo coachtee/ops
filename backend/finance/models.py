@@ -111,8 +111,55 @@ class Supplier(BusinessOwnedModel):
         return self.name
 
 
+def expense_receipt_upload_path(instance, filename):
+    return f"business/{instance.business_id}/expenses/{instance.id}/receipt/{filename}"
+
+
 class Expense(BusinessOwnedModel):
-    """Modelled for V1.1 (see docs/DISCOVERY.md); not exposed via API in this slice."""
+    """
+    Money out. `amount` is the VAT-INCLUSIVE total the owner actually paid —
+    what a receipt or bank statement shows — not a subtotal VAT gets added
+    to. This is the opposite direction from Quote/Invoice: there the owner
+    builds up a subtotal and VAT is added on top; here the owner already
+    knows the total and `vat_amount` is the portion of it that was already
+    VAT, extracted for their SARS input-VAT records. See
+    common/money.py:extract_vat_from_inclusive.
+
+    `supplier` is nullable and deliberately not exposed via the API in this
+    milestone — Suppliers (with its own CRUD/sync) is the next milestone;
+    the FK exists now so linking up later needs no migration.
+    """
+
+    CATEGORY_MATERIALS_STOCK = "materials_stock"
+    CATEGORY_FUEL_TRAVEL = "fuel_travel"
+    CATEGORY_TOOLS_EQUIPMENT = "tools_equipment"
+    CATEGORY_RENT = "rent"
+    CATEGORY_UTILITIES = "utilities"
+    CATEGORY_INSURANCE = "insurance"
+    CATEGORY_BANK_CHARGES = "bank_charges"
+    CATEGORY_PROFESSIONAL_FEES = "professional_fees"
+    CATEGORY_MARKETING = "marketing"
+    CATEGORY_TELEPHONE_INTERNET = "telephone_internet"
+    CATEGORY_VEHICLE = "vehicle"
+    CATEGORY_REPAIRS_MAINTENANCE = "repairs_maintenance"
+    CATEGORY_WAGES_SUBCONTRACTORS = "wages_subcontractors"
+    CATEGORY_OTHER = "other"
+    CATEGORY_CHOICES = [
+        (CATEGORY_MATERIALS_STOCK, "Materials & stock"),
+        (CATEGORY_FUEL_TRAVEL, "Fuel & travel"),
+        (CATEGORY_TOOLS_EQUIPMENT, "Tools & equipment"),
+        (CATEGORY_RENT, "Rent"),
+        (CATEGORY_UTILITIES, "Utilities"),
+        (CATEGORY_INSURANCE, "Insurance"),
+        (CATEGORY_BANK_CHARGES, "Bank charges"),
+        (CATEGORY_PROFESSIONAL_FEES, "Professional fees"),
+        (CATEGORY_MARKETING, "Marketing & advertising"),
+        (CATEGORY_TELEPHONE_INTERNET, "Telephone & internet"),
+        (CATEGORY_VEHICLE, "Vehicle expenses"),
+        (CATEGORY_REPAIRS_MAINTENANCE, "Repairs & maintenance"),
+        (CATEGORY_WAGES_SUBCONTRACTORS, "Wages & subcontractors"),
+        (CATEGORY_OTHER, "Other"),
+    ]
 
     supplier = models.ForeignKey(
         Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name="expenses"
@@ -120,12 +167,18 @@ class Expense(BusinessOwnedModel):
     job = models.ForeignKey(
         "work.Job", on_delete=models.SET_NULL, null=True, blank=True, related_name="expenses"
     )
-    category = models.CharField(max_length=100, blank=True)
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES, default=CATEGORY_OTHER)
     description = models.CharField(max_length=255, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    is_vat_applicable = models.BooleanField(default=False)
     vat_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     date = models.DateField()
-    receipt_image = models.ImageField(upload_to="expenses/receipts/", null=True, blank=True)
+    receipt_image = models.ImageField(
+        upload_to=expense_receipt_upload_path, max_length=255, null=True, blank=True
+    )
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
 
     def __str__(self):
-        return self.description or self.category
+        return self.description or self.get_category_display()

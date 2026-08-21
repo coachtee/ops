@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 
 from crm.models import Lead
-from finance.models import Invoice
+from finance.models import Expense, Invoice
 from sales.models import Quote
 
 from .helpers import AuthenticatedAPITestCase
@@ -232,3 +232,105 @@ class SyncPullTests(AuthenticatedAPITestCase):
         response = self.client.get("/api/sync/pull/")
         names = {c["fields"].get("name") for c in response.data["changes"] if c["model"] == "customer"}
         self.assertNotIn("Not Mine", names)
+
+
+class ExpenseSyncTests(AuthenticatedAPITestCase):
+    def push(self, changes):
+        return self.client.post("/api/sync/push/", {"changes": changes}, format="json")
+
+    def test_push_new_expense_computes_vat_and_is_accepted(self):
+        now = timezone.now()
+        expense_id = uuid.uuid4()
+        response = self.push(
+            [
+                change(
+                    "expense",
+                    expense_id,
+                    now,
+                    {
+                        "category": "fuel_travel",
+                        "description": "Diesel — bakkie",
+                        "amount": "575.00",
+                        "is_vat_applicable": True,
+                        "date": "2026-08-01",
+                    },
+                )
+            ]
+        )
+        result = response.data["results"][0]
+        self.assertEqual(result["status"], "accepted", response.data)
+        self.assertEqual(result["server_record"]["vat_amount"], "75.00")
+        self.assertEqual(Expense.objects.get(id=expense_id).description, "Diesel — bakkie")
+
+    def test_push_rejects_invalid_expense_without_side_effects(self):
+        now = timezone.now()
+        expense_id = uuid.uuid4()
+        response = self.push(
+            [change("expense", expense_id, now, {"category": "fuel_travel", "amount": "-10.00", "date": "2026-08-01"})]
+        )
+        self.assertEqual(response.data["results"][0]["status"], "error")
+        self.assertFalse(Expense.objects.filter(id=expense_id).exists())
+
+    def test_expense_and_its_job_in_one_batch_regardless_of_order(self):
+        now = timezone.now()
+        job_id = uuid.uuid4()
+        expense_id = uuid.uuid4()
+
+        job_change = change(
+            "job", job_id, now, {"customer_id": str(self.customer.id), "title": "Kitchen reno", "status": "in_progress"}
+        )
+        expense_change = change(
+            "expense",
+            expense_id,
+            now,
+            {"category": "materials_stock", "amount": "230.00", "is_vat_applicable": True, "date": "2026-08-01", "job_id": str(job_id)},
+        )
+
+        # Expense listed before its not-yet-applied parent job.
+        response = self.push([expense_change, job_change])
+        self.assertEqual([r["status"] for r in response.data["results"]], ["accepted", "accepted"])
+        expense = Expense.objects.get(id=expense_id)
+        self.assertEqual(expense.job_id, job_id)
+        self.assertEqual(str(expense.vat_amount), "30.00")
+
+    def test_receipt_image_is_not_writable_through_sync(self):
+        now = timezone.now()
+        expense_id = uuid.uuid4()
+        response = self.push(
+            [
+                change(
+                    "expense",
+                    expense_id,
+                    now,
+                    {
+                        "category": "other",
+                        "amount": "100.00",
+                        "is_vat_applicable": False,
+                        "date": "2026-08-01",
+                        "receipt_image": "not-a-real-upload",
+                    },
+                )
+            ]
+        )
+        self.assertEqual(response.data["results"][0]["status"], "accepted")
+        self.assertFalse(Expense.objects.get(id=expense_id).receipt_image)
+
+    def test_pulled_expense_includes_receipt_url_after_upload(self):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        expense_id = self.client.post(
+            "/api/expenses/",
+            {"category": "other", "amount": "100.00", "is_vat_applicable": False, "date": "2026-08-01"},
+            format="json",
+        ).data["id"]
+        buf = io.BytesIO()
+        Image.new("RGB", (16, 16)).save(buf, format="PNG")
+        photo = SimpleUploadedFile("r.png", buf.getvalue(), content_type="image/png")
+        self.client.post(f"/api/expenses/{expense_id}/receipt/", {"receipt": photo}, format="multipart")
+
+        response = self.client.get("/api/sync/pull/")
+        expense_change = next(c for c in response.data["changes"] if c["model"] == "expense" and c["id"] == str(expense_id))
+        self.assertTrue(expense_change["fields"]["receipt_image"])

@@ -103,7 +103,7 @@ class Business(models.Model):
     province = models.CharField(max_length=3, choices=PROVINCE_CHOICES, blank=True)
     postal_code = models.CharField(max_length=10, blank=True)
 
-    logo = models.ImageField(upload_to=logo_upload_path, null=True, blank=True)
+    logo = models.ImageField(upload_to=logo_upload_path, max_length=255, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

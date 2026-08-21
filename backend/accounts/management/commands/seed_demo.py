@@ -1,8 +1,8 @@
 """
 Seeds a realistic South African demo business — Thabo's Plumbing &
 Maintenance — walking every stage of the vertical slice: business setup,
-leads, customers, quotes, jobs, invoices and payments. Used to populate the
-backend the Android app demo build points at.
+leads, customers, quotes, jobs, invoices, payments and expenses. Used to
+populate the backend the Android app demo build points at.
 
 Usage: python manage.py seed_demo
 """
@@ -16,9 +16,10 @@ from django.utils import timezone
 
 from accounts.models import Business, Membership, User
 from crm.models import Customer, Lead
-from finance.models import Invoice, InvoiceLineItem, Payment
+from finance.models import Expense, Invoice, InvoiceLineItem, Payment
 from finance.services import (
     assign_invoice_number_if_needed,
+    recompute_expense_vat,
     recompute_invoice_payment_state,
     recompute_invoice_totals,
 )
@@ -264,6 +265,39 @@ class Command(BaseCommand):
         recompute_invoice_totals(overdue_invoice, bump_updated_at=False)
         assign_invoice_number_if_needed(overdue_invoice)
 
+        # --- Expenses — money out, against the Khumalo job and general overheads
+        materials = Expense.objects.create(
+            business=business,
+            job=job,
+            category=Expense.CATEGORY_MATERIALS_STOCK,
+            description="Copper piping, fittings and sealant — Builders",
+            amount=Decimal("1840.50"),
+            is_vat_applicable=True,
+            date=(today - timedelta(days=7)).date(),
+        )
+        recompute_expense_vat(materials, bump_updated_at=False)
+
+        fuel = Expense.objects.create(
+            business=business,
+            job=job,
+            category=Expense.CATEGORY_FUEL_TRAVEL,
+            description="Diesel — bakkie, Kuils River round trips",
+            amount=Decimal("450.00"),
+            is_vat_applicable=True,
+            date=(today - timedelta(days=6)).date(),
+        )
+        recompute_expense_vat(fuel, bump_updated_at=False)
+
+        bank_charges = Expense.objects.create(
+            business=business,
+            category=Expense.CATEGORY_BANK_CHARGES,
+            description="FNB business account monthly fee",
+            amount=Decimal("189.00"),
+            is_vat_applicable=False,
+            date=(today - timedelta(days=3)).date(),
+        )
+        recompute_expense_vat(bank_charges, bump_updated_at=False)
+
         self.stdout.write(self.style.SUCCESS("Seeded Thabo's Plumbing & Maintenance."))
         self.stdout.write(f"  login: {DEMO_EMAIL} / Demo12345")
         self.stdout.write(f"  leads: {Lead.objects.filter(business=business).count()}")
@@ -272,3 +306,4 @@ class Command(BaseCommand):
         self.stdout.write(f"  jobs: {Job.objects.filter(business=business).count()}")
         self.stdout.write(f"  invoices: {Invoice.objects.filter(business=business).count()}")
         self.stdout.write(f"  payments: {Payment.objects.filter(business=business).count()}")
+        self.stdout.write(f"  expenses: {Expense.objects.filter(business=business).count()}")

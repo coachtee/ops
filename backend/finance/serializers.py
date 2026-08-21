@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework import serializers
 
 from common.serializers import validate_same_business
@@ -5,7 +8,7 @@ from crm.models import Customer
 from sales.models import Quote
 from work.models import Job
 
-from .models import Invoice, InvoiceLineItem, Payment
+from .models import Expense, Invoice, InvoiceLineItem, Payment
 
 
 class InvoiceLineItemSerializer(serializers.ModelSerializer):
@@ -118,3 +121,63 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def validate_invoice_id(self, value):
         return validate_same_business(value, self.context.get("business"))
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
+    job_id = serializers.PrimaryKeyRelatedField(
+        source="job", queryset=Job.objects.all(), required=False, allow_null=True
+    )
+
+    class Meta:
+        model = Expense
+        fields = [
+            "id",
+            "job_id",
+            "category",
+            "description",
+            "amount",
+            "is_vat_applicable",
+            "vat_amount",
+            "date",
+            "receipt_image",
+            "created_at",
+            "updated_at",
+            "deleted_at",
+        ]
+        read_only_fields = ["vat_amount", "receipt_image", "created_at", "updated_at", "deleted_at"]
+
+    def validate_job_id(self, value):
+        return validate_same_business(value, self.context.get("business"))
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be greater than zero.")
+        return value
+
+    def validate_date(self, value):
+        # A day of slack for timezone edge cases — this is a hard stop
+        # against fat-fingering a wrong year, not a strict same-day rule.
+        if value > timezone.localdate() + timedelta(days=1):
+            raise serializers.ValidationError("Expense date can't be in the future.")
+        return value
+
+
+MAX_RECEIPT_SIZE_BYTES = 10 * 1024 * 1024  # 10MB — a phone camera photo, not a scanned book.
+
+
+class ExpenseReceiptUploadSerializer(serializers.Serializer):
+    """
+    Receipt photos travel outside the JSON sync protocol — see
+    API_CONTRACT.md's "Expense receipt attachments" addendum for why:
+    binary data doesn't fit the `changes` batch shape, and the parent
+    Expense must already exist server-side before its receipt can be
+    attached to it (this endpoint 404s otherwise).
+    """
+
+    receipt = serializers.ImageField(required=True)
+
+    def validate_receipt(self, value):
+        if value.size > MAX_RECEIPT_SIZE_BYTES:
+            raise serializers.ValidationError("Receipt photo must be 10MB or smaller.")
+        return value

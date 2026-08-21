@@ -32,3 +32,19 @@ def compute_document_totals(
     vat_amount = quantize(taxable * VAT_RATE) if is_vat_applicable else Decimal("0.00")
     total = quantize(taxable + vat_amount)
     return subtotal, vat_amount, total
+
+
+def extract_vat_from_inclusive(inclusive_amount, is_vat_applicable: bool) -> Decimal:
+    """
+    Expenses run the opposite direction from quotes/invoices: the owner
+    already knows the total they paid (it's on the receipt), and wants to
+    know how much of that total was VAT — not have VAT added on top of a
+    subtotal. Standard SA VAT-inclusive extraction: vat = total * rate /
+    (1 + rate), i.e. total * 15/115 at the current flat rate. Returns 0.00
+    when the expense wasn't VAT-charged at all (e.g. a non-VAT-registered
+    supplier, or bank charges).
+    """
+    if not is_vat_applicable:
+        return Decimal("0.00")
+    amount = Decimal(inclusive_amount)
+    return quantize(amount * VAT_RATE / (Decimal("1") + VAT_RATE))

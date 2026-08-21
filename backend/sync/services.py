@@ -39,6 +39,7 @@ MODEL_APPLY_ORDER = {
     "invoice": 5,
     "invoice_line_item": 6,
     "payment": 7,
+    "expense": 8,  # after "job" — an expense may reference one
 }
 
 
@@ -145,6 +146,14 @@ def apply_change(business, change: dict) -> dict:
     if model_key in LINE_ITEM_PARENTS:
         instance.line_total = compute_line_total(instance.quantity, instance.unit_price)
         instance.save(update_fields=["line_total"])
+
+    if model_key == "expense":
+        # Self-contained, same-record derived field — same pattern as
+        # line_total above, not the separate-event pattern
+        # _recompute_touched_parents uses for a *different* record's totals.
+        from finance.services import recompute_expense_vat
+
+        instance = recompute_expense_vat(instance, bump_updated_at=False)
 
     if model_key in NUMBERED_MODELS and instance.deleted_at is None:
         instance = _assign_number(model_key, instance)

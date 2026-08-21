@@ -45,10 +45,10 @@ PEOPLE → EMPLOYEES → SHIFTS/PAY → PAYSLIP
 COMPLIANCE: SARS / VAT / provisional tax / PAYE-UIF-SDL / CIPC annual return
 ```
 
-V1 is built to make the first loop (enquiry → paid) effortless from a phone, offline. The
-other two threads (money, people, compliance) are designed now so the domain model doesn't
-need rework later, but only "money in / money out" gets real screens in V1; people and
-compliance are scoped for the release immediately after.
+V1 is built to make the first loop (enquiry → paid) effortless from a phone, offline, plus the
+money-out half of the financial picture (expenses). The people and compliance threads are
+designed now so the domain model doesn't need rework later, but are scoped for releases after
+V1 — see §11 for the milestone sequence.
 
 ## 3. Minimum V1 capability set
 
@@ -64,18 +64,22 @@ compliance are scoped for the release immediately after.
    is in; status, dates, linked quote, linked invoice.
 6. **Invoices & payments** — invoice from a job or from scratch, record payments (full or
    partial), see outstanding.
-7. **Home dashboard** — today's money in, outstanding total, leads needing follow-up, active
-   jobs, quick actions. Answers "how is my business doing" in one glance.
-8. **Offline-first sync** — everything above must be usable with zero connectivity, with a
+7. **Expenses** — capture (amount, VAT-inclusive extraction, category, optional job/project
+   link), receipt photo attachment, offline-first the same as everything else. The "money out"
+   half of "how is my business doing."
+8. **Home dashboard** — today's money in, money out, outstanding total, leads needing
+   follow-up, active jobs, quick actions. Answers "how is my business doing" in one glance.
+9. **Offline-first sync** — everything above must be usable with zero connectivity, with a
    visible saved/syncing/synced/failed state per record.
 
 Designed in the domain model, targeted for the releases immediately following V1:
 
-9. Expenses & suppliers (the "money out" half of the financial picture).
-10. Employees, shifts and payslips.
-11. Compliance reminders (SARS/VAT/provisional tax/CIPC deadlines — track & remind, never
+10. Suppliers (Expense already has an optional `supplier` link on the backend; V1 doesn't yet
+    expose Supplier CRUD or a picker UI for it — see §11).
+11. Employees, shifts and payslips.
+12. Compliance reminders (SARS/VAT/provisional tax/CIPC deadlines — track & remind, never
     "submit").
-12. Reports as answers ("what did I make this month", "what are my biggest expenses").
+13. Reports as answers ("what did I make this month", "what are my biggest expenses").
 
 ## 4. Explicitly NOT in V1
 
@@ -119,7 +123,7 @@ CUSTOMERS
                  └─ Job detail → status, dates, → Create invoice
                      └─ Invoice detail → preview / send / Record payment
 MONEY
- └─ Outstanding invoices · Payments received · (Expenses — next milestone)
+ └─ Outstanding invoices · Payments received · Expenses (list + capture, receipt attach)
 ```
 
 Business Setup is a one-time flow shown before Home on first launch, and reachable later from
@@ -165,6 +169,13 @@ background concern the owner is never blocked on.
   background job — never a blocking spinner on the owner's typing.
 - **Failure:** a push that errors (validation, auth, server 5xx) leaves the record `FAILED`
   with a visible retry action; it never gets silently dropped from the outbox.
+- **Binary attachments (expense receipts):** the JSON `changes` batch above can't carry a
+  photo, so a receipt is a second, separate sync phase — see API_CONTRACT.md's "Expense
+  receipt attachments." A captured photo is stored on-device (local file) immediately and
+  uploaded via a dedicated multipart endpoint only once its parent expense record itself has
+  synced (the upload targets that record's id, which must already exist server-side). This
+  keeps the metadata sync protocol uniform (JSON only) rather than special-casing every model
+  for the one field that happens to be binary.
 
 ## 7. Django backend architecture
 
@@ -181,7 +192,7 @@ background concern the owner is never blocked on.
   - `crm` — Lead, Customer.
   - `sales` — Quote, QuoteLineItem.
   - `work` — Job.
-  - `finance` — Invoice, InvoiceLineItem, Payment (Expense/Supplier modelled, not exposed via
+  - `finance` — Invoice, InvoiceLineItem, Payment, Expense (Supplier modelled, not exposed via
     API yet).
   - `sync` — the generic push/pull machinery in §6, model-registry driven so new syncable
     models opt in with one line, not a bespoke endpoint each.
@@ -205,7 +216,7 @@ Business ─┬─< Membership >─ User
           │             ├─< Invoice ─┬─< InvoiceLineItem
           │             │            └─< Payment
           │             └─< Payment (also linkable directly to a Customer, on-account)
-          ├─< Expense (→ Supplier, → Job)         [modelled, V1.1]
+          ├─< Expense (→ Supplier[modelled,V1.1 — not exposed], → Job, receipt photo)
           ├─< Supplier                             [modelled, V1.1]
           └─< Employee ─< Payslip                  [modelled, V1.2]
 ```
@@ -213,7 +224,9 @@ Business ─┬─< Membership >─ User
 Every business-owned entity: `id (UUID)`, `business`, `created_at`, `updated_at`,
 `deleted_at`. Financial documents (Quote/Invoice) additionally carry `status`, `subtotal`,
 `vat_amount`, `discount_amount`, `total` — all computed from line items, never entered by
-hand, so the numbers can't drift from what's itemised.
+hand, so the numbers can't drift from what's itemised. Expense instead carries a single
+VAT-**inclusive** `amount` (what was actually paid) with `vat_amount` extracted from it — the
+opposite direction from Quote/Invoice, see API_CONTRACT.md.
 
 ## 9. Main user journeys (V1)
 
@@ -228,6 +241,10 @@ hand, so the numbers can't drift from what's itemised.
 4. **"Who owes me money":** Money tab → Outstanding, sorted oldest-first, tap → call the
    customer straight from the invoice.
 5. **"How's my business doing":** Home tab, no navigation required.
+6. **Money out, no signal:** owner buys materials at a hardware store → Money tab → + Expense
+   → amount, category, photo of the receipt → saved instantly, same "saved on this phone"
+   badge as everything else → both the JSON record and the receipt photo sync when back
+   online (the photo may lag a cycle behind the record itself, see §6).
 
 ## 10. Screen list (V1 vertical slice, built now)
 
@@ -246,25 +263,30 @@ hand, so the numbers can't drift from what's itemised.
 13. Invoice preview (branded)
 14. Record payment
 15. Sync status sheet (what's pending, retry)
+16. Expense list (Money tab, with category filter)
+17. New/edit expense (amount, VAT toggle, category, optional job link, receipt capture)
+18. Expense detail (receipt photo view, edit, delete)
 
-Not built this slice, designed for the next: Expenses, Suppliers, Employees, Payslips,
-Compliance calendar, full Reports tab — these are additive screens on the same architecture,
-not a redesign.
+Not built this slice, designed for the next: Suppliers (and a supplier picker on Expense),
+Employees, Payslips, Compliance calendar, full Reports tab — these are additive screens on the
+same architecture, not a redesign.
 
 ## 11. MVP development sequence
 
-1. **This deliverable — vertical slice:** Business setup → Customer → Lead → Quote → Job →
-   Invoice → Payment, offline-first on Android, syncing to the Django backend. (What's built
-   below.)
-2. Money out: Expenses + Suppliers, Home dashboard gains "money spent" and a real profit
-   figure.
-3. Reports tab: the question-shaped reports in §18 of the brief, built on data that already
-   exists by then.
-4. People: Employees, shifts, payslips (starts simple — three fields and a payslip PDF, not a
+1. ✅ **Vertical slice:** Business setup → Customer → Lead → Quote → Job → Invoice → Payment,
+   offline-first on Android, syncing to the Django backend.
+2. ✅ **Expenses** (this milestone): capture, VAT-inclusive extraction, category, optional
+   job link, receipt attachment (a second sync phase, see §6), offline-first, Home/Money
+   dashboards gain "money out." **Suppliers is not yet built** — Expense's `supplier` link
+   stays backend-only, unexposed, until its own milestone (next).
+3. Suppliers: CRUD + sync + a picker on Expense, supplier-linked expense history.
+4. Reports tab: the question-shaped reports in §18 of the brief, built on data that already
+   exists by then (profit, biggest expense categories, VAT collected vs paid).
+5. People: Employees, shifts, payslips (starts simple — three fields and a payslip PDF, not a
    workforce-management system).
-5. Compliance: SARS/VAT/PAYE/CIPC deadline tracker with reminders and accountant-ready
+6. Compliance: SARS/VAT/PAYE/CIPC deadline tracker with reminders and accountant-ready
    exports — explicitly "helps you prepare", never "submits for you".
-6. Hardening: conflict-resolution UX polish, backup/restore, multi-device QA, performance on
+7. Hardening: conflict-resolution UX polish, backup/restore, multi-device QA, performance on
    low-end Android hardware and 2G/3G networks.
 
 ## 12. Risks and assumptions
@@ -293,6 +315,17 @@ not a redesign.
   module's own README/NOTES for exactly what was and wasn't verified, and run it in Android
   Studio / CI to confirm the build.
 - **Compliance honesty:** nothing in OPS claims to file with SARS or CIPC. Compliance
-  features (from milestone 5 onward) are tracking, reminders, and accountant-ready exports
-  only, and must say so on-screen every time, per the brief's explicit instruction not to
-  fabricate regulatory certainty.
+  features (§11 milestone 6) are tracking, reminders, and accountant-ready exports only, and
+  must say so on-screen every time, per the brief's explicit instruction not to fabricate
+  regulatory certainty.
+- **Assumption:** Expense.amount is VAT-**inclusive** (what was paid), not a subtotal VAT gets
+  added to — the opposite convention from Quote/Invoice. This is the correct real-world
+  direction (a receipt shows a total, not a pre-VAT subtotal) but is a genuine UX risk worth
+  watching once real owners use it: the "VAT toggle + total" pattern needs the screen copy to
+  make unmistakably clear it means "this total already includes VAT," not "add VAT to this."
+- **Design note:** receipt photos don't fit the JSON sync protocol (§6), so they're a second,
+  separate multipart-upload phase keyed by the already-synced expense's id — see
+  API_CONTRACT.md's "Expense receipt attachments." This is the first binary attachment in the
+  product; the same pattern (not a redesign of sync itself) is expected to cover future
+  attachments (e.g. a signed quote, a supplier invoice PDF) rather than growing a bespoke
+  mechanism per feature.

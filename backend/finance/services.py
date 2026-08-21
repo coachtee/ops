@@ -4,9 +4,9 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from common.models import next_document_number
-from common.money import compute_document_totals, compute_line_total, quantize
+from common.money import compute_document_totals, compute_line_total, extract_vat_from_inclusive, quantize
 
-from .models import Invoice
+from .models import Expense, Invoice
 
 
 def recompute_invoice_line_item_total(line_item):
@@ -73,3 +73,15 @@ def assign_invoice_number_if_needed(invoice: Invoice) -> Invoice:
         invoice.number = next_document_number(invoice.business, "invoice", "INV")
         invoice.save(update_fields=["number"])
     return invoice
+
+
+def recompute_expense_vat(expense: Expense, bump_updated_at: bool = True) -> Expense:
+    """`amount` is the VAT-inclusive total; `vat_amount` is always derived
+    from it, never entered by hand — see the note on Expense.amount."""
+    expense.vat_amount = extract_vat_from_inclusive(expense.amount, expense.is_vat_applicable)
+    update_fields = ["vat_amount"]
+    if bump_updated_at:
+        expense.updated_at = timezone.now()
+        update_fields.append("updated_at")
+    expense.save(update_fields=update_fields)
+    return expense
