@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ops.app.data.local.entities.BusinessEntity
@@ -58,6 +60,7 @@ fun QuotePreviewScreen(
 
 /** Stateless render of [QuotePreviewScreen] — split out for the screenshot
  * pack (see android/README.md); not called from navigation directly. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuotePreviewContent(
     uiState: QuotePreviewUiState,

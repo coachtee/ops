@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +36,7 @@ import com.ops.app.ui.components.DateField
 import com.ops.app.ui.components.SectionHeader
 import com.ops.app.ui.components.formatZar
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvoiceEditScreen(
     onBack: () -> Unit,

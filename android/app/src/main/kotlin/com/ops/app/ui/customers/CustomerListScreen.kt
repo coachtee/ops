@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -28,6 +29,7 @@ import com.ops.app.ui.components.EmptyState
  * that needs a customer first (New quote / New invoice / Record payment) —
  * see OpsDestinations.CUSTOMERS_PICKABLE. It only changes the title/hint
  * text and whether the FAB is shown; the list itself is identical. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomerListScreen(
     isPicking: Boolean,

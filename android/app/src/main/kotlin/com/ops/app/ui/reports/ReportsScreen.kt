@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +46,7 @@ fun ReportsScreen(viewModel: ReportsViewModel = hiltViewModel()) {
 
 /** Stateless render of [ReportsScreen] — split out for the screenshot pack
  * (see android/README.md); not called from navigation directly. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsContent(uiState: ReportsUiState) {
     Scaffold(

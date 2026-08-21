@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +42,7 @@ fun EmployeeListScreen(
 
 /** Stateless render of [EmployeeListScreen] — split out for the screenshot
  * pack (see android/README.md); not called from navigation directly. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployeeListContent(
     employees: List<com.ops.app.data.local.entities.EmployeeEntity>,

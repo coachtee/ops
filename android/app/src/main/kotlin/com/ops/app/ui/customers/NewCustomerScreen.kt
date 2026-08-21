@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -29,6 +30,7 @@ import com.ops.app.ui.components.CUSTOMER_TYPE_CHOICES
 import com.ops.app.ui.components.LabeledDropdown
 import com.ops.app.ui.components.PROVINCE_CHOICES
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewCustomerScreen(
     onBack: () -> Unit,

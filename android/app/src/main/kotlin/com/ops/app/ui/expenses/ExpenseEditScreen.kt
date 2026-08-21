@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -119,6 +120,7 @@ fun ExpenseEditScreen(
  * receipt-capture buttons are passed in as plain callbacks since the
  * actual camera/gallery activity-result launchers need to stay registered
  * in [ExpenseEditScreen] itself. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseEditContent(
     uiState: ExpenseEditUiState,

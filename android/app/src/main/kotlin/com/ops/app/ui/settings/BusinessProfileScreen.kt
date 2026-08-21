@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -118,6 +119,7 @@ fun BusinessProfileScreen(
  * directly. The logo picker stays a plain callback since the actual
  * activity-result launcher needs to stay registered in
  * [BusinessProfileScreen] itself. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BusinessProfileContent(
     business: com.ops.app.data.local.entities.BusinessEntity?,

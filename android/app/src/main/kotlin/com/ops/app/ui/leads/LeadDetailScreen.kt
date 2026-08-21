@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,6 +70,7 @@ fun LeadDetailScreen(
 
 /** Stateless render of [LeadDetailScreen] — split out for the screenshot
  * pack (see android/README.md); not called from navigation directly. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeadDetailContent(
     lead: com.ops.app.data.local.entities.LeadEntity?,
