@@ -48,6 +48,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.ops.app.data.local.ReceiptSyncState
+import com.ops.app.data.local.entities.JobEntity
+import com.ops.app.data.local.entities.SupplierEntity
 import com.ops.app.ui.components.DateField
 import com.ops.app.ui.components.EXPENSE_CATEGORY_CHOICES
 import com.ops.app.ui.components.ErrorBanner
