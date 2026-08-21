@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ops.app.data.local.ReceiptSyncState
 import com.ops.app.data.local.entities.JobEntity
+import com.ops.app.data.local.entities.SupplierEntity
 import com.ops.app.data.repository.ExpenseRepository
 import com.ops.app.data.repository.JobRepository
+import com.ops.app.data.repository.SupplierRepository
 import com.ops.app.ui.navigation.OpsDestinations.orNull
 import com.ops.coredomain.ExpenseCategory
 import com.ops.coredomain.Money
@@ -25,6 +27,7 @@ import javax.inject.Inject
 data class ExpenseEditUiState(
     val expenseId: String? = null,
     val jobId: String? = null,
+    val supplierId: String? = null,
     val category: String = ExpenseCategory.OTHER.wire,
     val description: String = "",
     val amount: String = "",
@@ -66,6 +69,7 @@ class ExpenseEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val expenseRepository: ExpenseRepository,
     jobRepository: JobRepository,
+    supplierRepository: SupplierRepository,
 ) : ViewModel() {
 
     private val routeExpenseId: String? = (savedStateHandle.get<String>("expenseId")).orNull()
@@ -74,6 +78,9 @@ class ExpenseEditViewModel @Inject constructor(
     val uiState: StateFlow<ExpenseEditUiState> = _uiState.asStateFlow()
 
     val jobs: StateFlow<List<JobEntity>> = jobRepository.observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val suppliers: StateFlow<List<SupplierEntity>> = supplierRepository.observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
@@ -88,6 +95,7 @@ class ExpenseEditViewModel @Inject constructor(
                 it.copy(
                     expenseId = existing.id,
                     jobId = existing.jobId,
+                    supplierId = existing.supplierId,
                     category = existing.category,
                     description = existing.description,
                     amount = existing.amount,
@@ -136,6 +144,7 @@ class ExpenseEditViewModel @Inject constructor(
             val id = expenseRepository.save(
                 id = validated.expenseId,
                 jobId = validated.jobId,
+                supplierId = validated.supplierId,
                 category = validated.category,
                 description = validated.description,
                 amount = validated.amount.toSafeBigDecimalOrNull() ?: BigDecimal.ZERO,

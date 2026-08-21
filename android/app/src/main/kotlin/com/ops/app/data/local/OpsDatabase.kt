@@ -12,6 +12,7 @@ import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
+import com.ops.app.data.local.dao.SupplierDao
 import com.ops.app.data.local.entities.BusinessEntity
 import com.ops.app.data.local.entities.CustomerEntity
 import com.ops.app.data.local.entities.ExpenseEntity
@@ -22,6 +23,7 @@ import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.local.entities.PaymentEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
+import com.ops.app.data.local.entities.SupplierEntity
 
 /**
  * Room is the source of truth for every screen — no screen ever waits on the
@@ -51,13 +53,15 @@ import com.ops.app.data.local.entities.QuoteLineItemEntity
         InvoiceLineItemEntity::class,
         PaymentEntity::class,
         ExpenseEntity::class,
+        SupplierEntity::class,
     ],
-    // v2 added ExpenseEntity. No migration path is defined for v1 -> v2 —
-    // see DatabaseModule's fallbackToDestructiveMigration(): this app has
-    // never shipped, so there's no installed v1 data to preserve. That
-    // won't hold once this ships for real; a proper Migration is needed
-    // for any schema change after that point.
-    version = 2,
+    // v2 added ExpenseEntity; v3 added SupplierEntity + ExpenseEntity.supplierId.
+    // No migration path is defined for any of these — see DatabaseModule's
+    // fallbackToDestructiveMigration(): this app has never shipped, so
+    // there's no installed data to preserve. That won't hold once this
+    // ships for real; a proper Migration is needed for any schema change
+    // after that point.
+    version = 3,
     exportSchema = false,
 )
 abstract class OpsDatabase : RoomDatabase() {
@@ -71,6 +75,7 @@ abstract class OpsDatabase : RoomDatabase() {
     abstract fun invoiceLineItemDao(): InvoiceLineItemDao
     abstract fun paymentDao(): PaymentDao
     abstract fun expenseDao(): ExpenseDao
+    abstract fun supplierDao(): SupplierDao
 
     companion object {
         const val DATABASE_NAME = "ops.db"

@@ -23,6 +23,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE jobId = :jobId AND deletedAt IS NULL ORDER BY date DESC")
     fun observeByJobId(jobId: String): Flow<List<ExpenseEntity>>
 
+    @Query("SELECT * FROM expenses WHERE supplierId = :supplierId AND deletedAt IS NULL ORDER BY date DESC")
+    fun observeBySupplierId(supplierId: String): Flow<List<ExpenseEntity>>
+
     /** The outbox: rows waiting to be pushed, or that failed last time and need retrying. */
     @Query("SELECT * FROM expenses WHERE syncState IN ('PENDING', 'FAILED')")
     suspend fun getOutbox(): List<ExpenseEntity>

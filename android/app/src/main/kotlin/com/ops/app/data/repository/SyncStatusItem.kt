@@ -9,6 +9,7 @@ import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.local.entities.PaymentEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
+import com.ops.app.data.local.entities.SupplierEntity
 
 /** One row on the sync status screen — wraps whichever concrete entity it
  * is, plus the display bits every row needs regardless of type. See
@@ -48,4 +49,7 @@ sealed class SyncStatusItem(
 
     class Expense(val entity: ExpenseEntity) :
         SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Expense", entity.description.ifBlank { "R${entity.amount}" })
+
+    class Supplier(val entity: SupplierEntity) :
+        SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Supplier", entity.name)
 }

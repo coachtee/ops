@@ -25,6 +25,8 @@ import com.ops.app.ui.quotes.QuoteEditScreen
 import com.ops.app.ui.quotes.QuotePreviewScreen
 import com.ops.app.ui.settings.BusinessProfileScreen
 import com.ops.app.ui.splash.SplashScreen
+import com.ops.app.ui.suppliers.SupplierEditScreen
+import com.ops.app.ui.suppliers.SupplierListScreen
 import com.ops.app.ui.syncstatus.SyncStatusScreen
 
 /**
@@ -242,6 +244,7 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
                 onOpenInvoice = { navController.navigate(OpsDestinations.invoicePreview(it)) },
                 onOpenExpense = { navController.navigate(OpsDestinations.expenseEditExisting(it)) },
                 onNewExpense = { navController.navigate(OpsDestinations.expenseEditNew()) },
+                onOpenSuppliers = { navController.navigate(OpsDestinations.SUPPLIERS) },
             )
         }
 
@@ -250,6 +253,24 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
             arguments = listOf(navArgument("expenseId") { type = NavType.StringType }),
         ) {
             ExpenseEditScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(OpsDestinations.SUPPLIERS) {
+            SupplierListScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSupplier = { navController.navigate(OpsDestinations.supplierEditExisting(it)) },
+                onNewSupplier = { navController.navigate(OpsDestinations.supplierEditNew()) },
+            )
+        }
+
+        composable(
+            route = OpsDestinations.SUPPLIER_EDIT,
+            arguments = listOf(navArgument("supplierId") { type = NavType.StringType }),
+        ) {
+            SupplierEditScreen(
+                onBack = { navController.popBackStack() },
+                onOpenExpense = { navController.navigate(OpsDestinations.expenseEditExisting(it)) },
+            )
         }
 
         composable(OpsDestinations.SYNC_STATUS) {

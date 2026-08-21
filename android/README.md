@@ -4,10 +4,12 @@ Mobile-first, offline-first Android client for OPS, a South African small-busine
 system. See `../docs/DISCOVERY.md` for the product/architecture rationale and
 `../docs/API_CONTRACT.md` for the exact network contract this app implements against. This
 module implements the V1 vertical slice — business setup, leads, customers, quotes, jobs,
-invoices, payments, the home dashboard, and offline sync — plus the Expenses milestone that
-followed it (capture, receipt photo attachment, VAT-inclusive extraction, categories, optional
-job/project link, offline-first the same as everything else). See DISCOVERY.md section 10 for
-what's still deliberately deferred (Suppliers, Employees/Payslips, Compliance, full Reports).
+invoices, payments, the home dashboard, and offline sync — plus the Expenses milestone
+(capture, receipt photo attachment, VAT-inclusive extraction, categories, optional job/project
+link) and the Suppliers milestone that followed it (a simple contact record — who the business
+buys from — linked from Expense.supplier_id, with a picker on the expense form and each
+supplier's own expense history shown read-only on its own screen). See DISCOVERY.md section 10
+for what's still deliberately deferred (Employees/Payslips, Compliance, full Reports).
 
 ## Module layout
 
@@ -47,10 +49,12 @@ android/
   column holding the canonical decimal string — never REAL/float. `ExpenseEntity` additionally
   carries local-only receipt state (`localReceiptPath`/`receiptSyncState`/`receiptSyncError`,
   see `ReceiptSyncState`) — a second state machine independent of the record's own
-  `syncState`, since a receipt photo travels through a different sync path (see below). `v2`
-  of the schema (added `ExpenseEntity`) has no migration path from `v1` —
-  `fallbackToDestructiveMigration()` — since this app has never shipped; that stops being
-  acceptable once it does.
+  `syncState`, since a receipt photo travels through a different sync path (see below), and a
+  nullable `supplierId` (v3). `SupplierEntity` is a deliberately small contact record — name,
+  contact person, phone, email, notes — not a vendor-management module. Schema history: `v2`
+  added `ExpenseEntity`; `v3` added `SupplierEntity` and `ExpenseEntity.supplierId`. None of
+  these has a migration path from the version before it — `fallbackToDestructiveMigration()` —
+  since this app has never shipped; that stops being acceptable once it does.
 - `data/remote/` — Retrofit `OpsApiService` (every endpoint in API_CONTRACT.md, including the
   multipart `POST /api/expenses/{id}/receipt/`), kotlinx.serialization DTOs,
   `AuthHeaderInterceptor` + `TokenAuthenticator` (401 → refresh once → retry).
@@ -62,22 +66,29 @@ android/
   per-record and never fails the overall sync outcome. Plus `SyncWorker` (WorkManager, ~15 min
   periodic heartbeat + expedited one-time trigger after local writes).
 - `data/repository/` — one repository per aggregate (Lead, Customer, Quote+line items,
-  Job, Invoice+line items, Payment, Expense, Business, Auth) plus `SyncStatusRepository` for
-  the sync status screen's cross-model view. `ExpenseRepository.attachReceipt`/`retryReceipt`
-  manage the receipt state machine; `save`/`delete` are the usual PENDING-then-sync pattern.
+  Job, Invoice+line items, Payment, Supplier, Expense, Business, Auth) plus
+  `SyncStatusRepository` for the sync status screen's cross-model view.
+  `ExpenseRepository.attachReceipt`/`retryReceipt` manage the receipt state machine;
+  `save`/`delete` are the usual PENDING-then-sync pattern, same for `SupplierRepository`.
 - `di/` — Hilt modules for Room, Retrofit/OkHttp, WorkManager. `AuthPreferences`
   (DataStore-backed) and every repository are constructor-injected directly (`@Inject
   constructor`), which is itself Hilt DI — no separate binding module is needed for concrete
   classes with no interface to bind against.
 - `ui/` — one package per screen area (`splash`, `businesssetup`, `home`, `leads`,
-  `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `money`, `syncstatus`,
-  `settings`), each with a `@HiltViewModel` + a Compose screen, plus
+  `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `suppliers`, `money`,
+  `syncstatus`, `settings`), each with a `@HiltViewModel` + a Compose screen, plus
   `ui/navigation/OpsNavGraph.kt` wiring all of them together and `ui/components/` for shared
   pieces (money/date formatting, the sync status chip, the branded quote/invoice letterhead, a
   date picker field, dropdowns). `ui/expenses/ExpenseEditScreen` is one screen for create,
   edit, and view (delete + camera/gallery receipt capture live there too), following
   `JobDetailScreen`'s "always editable, no separate view/edit mode" spirit rather than the
   3-screen split (list/new-edit/detail) originally sketched — see Scope notes.
+  `ui/suppliers/SupplierEditScreen` follows the same single-screen pattern (create, edit, view,
+  delete, plus call/WhatsApp/email quick actions reusing `LeadDetailScreen`'s `Intent` pattern
+  and a read-only list of that supplier's expenses below the form); `SupplierListScreen` is a
+  plain alphabetical contact list, reached from the Money tab rather than its own bottom-nav
+  tab — "Money in → Money out → Expenses → Suppliers" is one conceptual thread, not a separate
+  app section.
 
 ## Demo script
 
@@ -141,11 +152,15 @@ documented constraints of this environment, not something to work around.
 
 **Actually run, real output — `core-domain`:**
 
+No `gradlew` wrapper is committed (see below), so this is run with the sandbox's
+system-installed Gradle 8.14.3 directly — `core-domain` is a pure-Kotlin/JVM module with no
+Android Gradle Plugin dependency, so it needs neither the wrapper nor an SDK:
+
 ```
-$ ./gradlew :core-domain:test
+$ gradle :core-domain:test --rerun
 ...
-BUILD SUCCESSFUL in 25s
-4 actionable tasks: 4 executed
+BUILD SUCCESSFUL in 21s
+4 actionable tasks: 1 executed, 3 up-to-date
 ```
 
 36 tests, 36 passing, 0 failures, 0 errors — confirmed via both the console output and the
@@ -160,21 +175,35 @@ JUnit XML result files (`core-domain/build/test-results/test/*.xml`), broken dow
 | `EnumsTest`                     | 10  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value |
 
 This is the one hard verification gate for this deliverable, and it's genuinely green — not
-asserted, run.
+asserted, run. The Suppliers milestone added no `core-domain` code (no new enum, no new money
+direction — a supplier is a plain contact record), so this table is unchanged from the Expenses
+milestone; re-run above to confirm nothing regressed.
 
 **Written but NOT compiled or run here — the `app` module:**
 
-Every file under `app/src/main/kotlin` (105 Kotlin files: Room entities/DAOs, Retrofit
-service/DTOs, the sync engine, eight repositories, Hilt modules, and 16 Compose screens with
-their ViewModels) was written carefully, by hand, cross-checking every field name, wire enum
-value, and endpoint path against `API_CONTRACT.md` and the actual Django serializers/models in
-`../backend/` — but **`./gradlew :app:compileDebugKotlin` was never run**, because it cannot
-succeed here: AGP needs `android.jar` from an installed SDK to compile against, and this sandbox
-has neither the SDK nor network access to `dl.google.com` to fetch AGP's own plugin artifact in
-the first place (confirmed by testing, see above) — the build fails at plugin resolution,
-before it would even get to the point of missing the SDK. That is a sandbox limitation, not
-something wrong with the `app` module's own build files, which are otherwise a normal,
-standalone AGP/Compose/Hilt setup.
+Every file under `app/src/main/kotlin` (112 Kotlin files as of the Suppliers milestone —
+Room entities/DAOs, Retrofit service/DTOs, the sync engine, ten repositories, Hilt modules,
+and 18 Compose screens with their ViewModels) was written carefully, by hand, cross-checking
+every field name, wire enum value, and endpoint path against `API_CONTRACT.md` and the actual
+Django serializers/models in `../backend/` — but **`app:compileDebugKotlin` was never
+successfully run**, because it cannot succeed here: AGP needs `android.jar` from an installed
+SDK to compile against, and this sandbox has neither the SDK nor network access to
+`dl.google.com` to fetch AGP's own plugin artifact in the first place. Re-confirmed for this
+milestone:
+
+```
+$ gradle :app:compileDebugKotlin
+...
+* What went wrong:
+Plugin [id: 'com.android.application', version: '8.5.2'] was not found in any of the
+following sources: ... could not resolve plugin artifact
+'com.android.application:com.android.application.gradle.plugin:8.5.2' ...
+BUILD FAILED in 3s
+```
+
+The build fails at plugin resolution, before it would even get to the point of missing the
+SDK. That is a sandbox limitation, not something wrong with the `app` module's own build
+files, which are otherwise a normal, standalone AGP/Compose/Hilt setup.
 
 Several specific things were caught and fixed exactly because of manual re-reading and
 cross-checking (not because a compiler caught them) — worth naming so it's clear what "not
@@ -203,9 +232,34 @@ From the Expenses milestone:
   (`RoundedCornerShape`, drafted for a receipt-thumbnail treatment that didn't end up needed)
   in the new `ExpenseEditScreen.kt`.
 
+From the Suppliers milestone:
+
+- Adding `SyncStatusItem.Supplier` as a new sealed-class subclass, while wiring
+  `SyncStatusRepository`'s constructor and `observeItems()` flow list, initially left the
+  `retry`/`keepMine`/`useTheirs` `when (item) { ... }` blocks without a `Supplier` branch —
+  Kotlin's exhaustive-`when`-over-a-sealed-class check would have caught this immediately at
+  compile time, but since compilation isn't available here, it had to be caught by re-reading
+  the file against the (now six-subclass) sealed class directly. Fixed — all three blocks now
+  handle every `SyncStatusItem` subtype.
+- A misplaced KDoc comment: the "`receipt_image` is read-only on the wire" doc comment (which
+  describes `ExpenseFieldsDto.receiptImage`) ended up sitting directly above the newly-inserted
+  `SupplierFieldsDto` instead, in `ModelFieldsDto.kt` — correct code, wrong/misleading
+  documentation. Fixed by moving it back above `ExpenseFieldsDto` and giving `SupplierFieldsDto`
+  its own one-line comment.
+- `SupplierEditViewModel.linkedExpenses` initially `flatMapLatest`'d directly off the full
+  `_uiState` flow, which would have re-subscribed to `ExpenseRepository.observeBySupplierId`
+  (cancelling and restarting the underlying Room query) on every keystroke in the name/notes
+  fields, not just when the supplier's id actually changes. Fixed to `map { it.supplierId
+  }.distinctUntilChanged()` first — correct either way, but the unfixed version would have been
+  a real, if minor, performance defect (needless Room query churn while typing).
+- An early draft of `SupplierEditScreen.kt` accepted an `onOpenExpense` callback parameter but
+  never actually wired it to the linked-expense list's `ListItem`s (they weren't clickable), and
+  had a leftover no-op `Modifier.let { m -> if (...) m else m }` block that did nothing.
+  Fixed — the list is now clickable via `onOpenExpense`, and the dead conditional removed.
+
 All of the above are exactly the kind of thing a real `compileDebugKotlin` (or a runtime smoke
 test) would catch immediately, which is why this section says "written, not verified" rather
-than "done" — the same class of mistake could plausibly still be sitting somewhere in these 105
+than "done" — the same class of mistake could plausibly still be sitting somewhere in these 112
 files this sandbox couldn't compile. **Confirming the `app` module actually builds and runs
 needs Android Studio or CI with a real Android SDK** — that hasn't happened yet.
 
@@ -226,10 +280,14 @@ needs Android Studio or CI with a real Android SDK** — that hasn't happened ye
   the demo script requiring it to log into the *already-seeded* Thabo's Plumbing account
   rather than registering a second, empty one, both make this a necessary addition, not
   scope creep — it is a second state of the same one screen, not a new one.
-- **Suppliers, Employees/Payslips, Compliance reminders, and full Reports are not built** —
+- **Employees/Payslips, Compliance reminders, and full Reports are not built** —
   DISCOVERY.md section 10 explicitly scopes these to later milestones; no screens or
-  navigation for them exist. Expenses (this milestone) shipped without a supplier picker for
-  the same reason: `Expense.supplier` isn't exposed via the API yet (see API_CONTRACT.md).
+  navigation for them exist.
+- **Suppliers is a contact record, not a vendor-management module.** Name, contact person,
+  phone, email, notes — that's the whole model, matching how a real small-business owner
+  actually tracks "who I buy from" (a phone number to call, not a procurement workflow). "What
+  have I bought from them" is answered by filtering that supplier's own `Expense` rows (shown
+  read-only on the supplier's own screen), not a separate purchase-order/ledger concept.
 - **One Expense screen, not three.** The original screen list sketched list/new-edit/detail as
   separate screens; built instead as one `ExpenseEditScreen` (create, edit, view, delete, and
   receipt capture all in place) plus the list folded into the Money tab's existing feed

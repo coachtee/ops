@@ -60,6 +60,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private const val NO_JOB = ""
+private const val NO_SUPPLIER = ""
 
 @Composable
 fun ExpenseEditScreen(
@@ -68,6 +69,7 @@ fun ExpenseEditScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val jobs by viewModel.jobs.collectAsStateWithLifecycle()
+    val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -175,6 +177,13 @@ fun ExpenseEditScreen(
                 options = listOf(NO_JOB to "None") + jobs.map { it.id to (it.number ?: it.title) },
                 selected = uiState.jobId ?: NO_JOB,
                 onSelected = { viewModel.update { s -> s.copy(jobId = it.ifBlank { null }) } },
+            )
+
+            LabeledDropdown(
+                label = "Supplier (optional)",
+                options = listOf(NO_SUPPLIER to "None") + suppliers.map { it.id to it.name },
+                selected = uiState.supplierId ?: NO_SUPPLIER,
+                onSelected = { viewModel.update { s -> s.copy(supplierId = it.ifBlank { null }) } },
             )
 
             SectionHeader("Receipt")

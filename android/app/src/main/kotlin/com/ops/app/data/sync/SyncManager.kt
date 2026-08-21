@@ -13,6 +13,7 @@ import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
+import com.ops.app.data.local.dao.SupplierDao
 import com.ops.app.data.remote.OpsApiService
 import com.ops.app.data.remote.dto.CustomerFieldsDto
 import com.ops.app.data.remote.dto.ExpenseFieldsDto
@@ -23,6 +24,7 @@ import com.ops.app.data.remote.dto.LeadFieldsDto
 import com.ops.app.data.remote.dto.PaymentFieldsDto
 import com.ops.app.data.remote.dto.QuoteFieldsDto
 import com.ops.app.data.remote.dto.QuoteLineItemFieldsDto
+import com.ops.app.data.remote.dto.SupplierFieldsDto
 import com.ops.app.data.remote.dto.SyncChangeDto
 import com.ops.app.data.remote.dto.SyncPushRequestDto
 import com.ops.app.data.remote.dto.SyncResultDto
@@ -62,7 +64,7 @@ sealed interface SyncOutcome {
  * called from a coroutine/WorkManager worker the UI merely observes via
  * [observeChipState] / each screen's Room [Flow]s):
  *
- *  1. Gather every PENDING/FAILED row across all 9 syncable DAOs into ONE
+ *  1. Gather every PENDING/FAILED row across all 10 syncable DAOs into ONE
  *     `POST /api/sync/push/` batch (any order — the server applies a fixed
  *     dependency order within the batch, see API_CONTRACT.md).
  *  2. Mark them SYNCING first. Per result: `accepted` -> overwrite local
@@ -103,6 +105,7 @@ class SyncManager @Inject constructor(
     private val invoiceDao: InvoiceDao,
     private val invoiceLineItemDao: InvoiceLineItemDao,
     private val paymentDao: PaymentDao,
+    private val supplierDao: SupplierDao,
     private val expenseDao: ExpenseDao,
     private val apiService: OpsApiService,
     private val authPreferences: AuthPreferences,
@@ -112,7 +115,7 @@ class SyncManager @Inject constructor(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    /** Every syncable row not yet cleanly SYNCED, across all 9 models — feeds
+    /** Every syncable row not yet cleanly SYNCED, across all 10 models — feeds
      * the top-bar chip. The sync status screen instead combines the typed
      * per-model DAO flows directly (via SyncStatusRepository) so it can show
      * per-record labels, not just counts. */
@@ -125,6 +128,7 @@ class SyncManager @Inject constructor(
         invoiceDao.observeUnsynced(),
         invoiceLineItemDao.observeUnsynced(),
         paymentDao.observeUnsynced(),
+        supplierDao.observeUnsynced(),
         expenseDao.observeUnsynced(),
     )
 
@@ -168,10 +172,12 @@ class SyncManager @Inject constructor(
         val invoiceOutbox = invoiceDao.getOutbox()
         val invoiceLineItemOutbox = invoiceLineItemDao.getOutbox()
         val paymentOutbox = paymentDao.getOutbox()
+        val supplierOutbox = supplierDao.getOutbox()
         val expenseOutbox = expenseDao.getOutbox()
 
         val total = leadOutbox.size + customerOutbox.size + quoteOutbox.size + quoteLineItemOutbox.size +
-            jobOutbox.size + invoiceOutbox.size + invoiceLineItemOutbox.size + paymentOutbox.size + expenseOutbox.size
+            jobOutbox.size + invoiceOutbox.size + invoiceLineItemOutbox.size + paymentOutbox.size +
+            supplierOutbox.size + expenseOutbox.size
         if (total == 0) return
 
         leadOutbox.forEach { leadDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
@@ -182,6 +188,7 @@ class SyncManager @Inject constructor(
         invoiceOutbox.forEach { invoiceDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
         invoiceLineItemOutbox.forEach { invoiceLineItemDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
         paymentOutbox.forEach { paymentDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
+        supplierOutbox.forEach { supplierDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
         expenseOutbox.forEach { expenseDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
 
         val changes: List<SyncChangeDto> = buildList {
@@ -193,6 +200,7 @@ class SyncManager @Inject constructor(
             invoiceOutbox.forEach { add(it.toSyncChange(json)) }
             invoiceLineItemOutbox.forEach { add(it.toSyncChange(json)) }
             paymentOutbox.forEach { add(it.toSyncChange(json)) }
+            supplierOutbox.forEach { add(it.toSyncChange(json)) }
             expenseOutbox.forEach { add(it.toSyncChange(json)) }
         }
 
@@ -211,6 +219,7 @@ class SyncManager @Inject constructor(
             invoiceOutbox.forEach { invoiceDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             invoiceLineItemOutbox.forEach { invoiceLineItemDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             paymentOutbox.forEach { paymentDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
+            supplierOutbox.forEach { supplierDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             expenseOutbox.forEach { expenseDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             throw e
         }
@@ -292,6 +301,15 @@ class SyncManager @Inject constructor(
                 }
             }
 
+            SyncModelKeys.SUPPLIER -> supplierDao.getById(result.id)?.let { existing ->
+                when (result.status) {
+                    "accepted" -> result.serverRecord?.let { json.decodeFromJsonElement<SupplierFieldsDto>(it) }
+                        ?.let { dto -> supplierDao.upsert(dto.toEntity(result.id, dto.serverUpdatedAt ?: existing.updatedAt, dto.serverDeletedAt, SyncState.SYNCED)) }
+                    "conflict" -> supplierDao.upsert(existing.copy(syncState = SyncState.CONFLICT, syncError = null, conflictServerJson = result.serverRecord?.toString()))
+                    else -> supplierDao.upsert(existing.copy(syncState = SyncState.FAILED, syncError = result.errors.toSyncErrorMessage()))
+                }
+            }
+
             SyncModelKeys.EXPENSE -> expenseDao.getById(result.id)?.let { existing ->
                 when (result.status) {
                     "accepted" -> result.serverRecord?.let { json.decodeFromJsonElement<ExpenseFieldsDto>(it) }
@@ -356,6 +374,11 @@ class SyncManager @Inject constructor(
                 json.decodeFromJsonElement<PaymentFieldsDto>(change.fields)
                     .toEntity(change.id, change.updatedAt, change.deletedAt, SyncState.SYNCED)
             }?.let { paymentDao.upsert(it) }
+
+            SyncModelKeys.SUPPLIER -> applyPull(supplierDao.getById(change.id), incomingUpdatedAt) {
+                json.decodeFromJsonElement<SupplierFieldsDto>(change.fields)
+                    .toEntity(change.id, change.updatedAt, change.deletedAt, SyncState.SYNCED)
+            }?.let { supplierDao.upsert(it) }
 
             SyncModelKeys.EXPENSE -> {
                 val existingExpense = expenseDao.getById(change.id)

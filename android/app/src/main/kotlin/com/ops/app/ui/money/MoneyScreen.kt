@@ -35,6 +35,7 @@ fun MoneyScreen(
     onOpenInvoice: (String) -> Unit,
     onOpenExpense: (String) -> Unit,
     onNewExpense: () -> Unit,
+    onOpenSuppliers: () -> Unit,
     viewModel: MoneyViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -92,6 +93,15 @@ fun MoneyScreen(
                         modifier = Modifier.fillMaxWidth().clickable { onOpenExpense(expense.id) },
                     )
                 }
+            }
+
+            item { SectionHeader("Suppliers") }
+            item {
+                ListItem(
+                    headlineContent = { Text("Who you buy from") },
+                    supportingContent = { Text("Manage suppliers and see what's been bought from each one.") },
+                    modifier = Modifier.fillMaxWidth().clickable { onOpenSuppliers() },
+                )
             }
         }
     }

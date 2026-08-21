@@ -159,6 +159,18 @@ data class PaymentFieldsDto(
     @SerialName("deleted_at") val serverDeletedAt: String? = null,
 )
 
+/** A simple contact record — see Supplier's model doc comment. */
+@Serializable
+data class SupplierFieldsDto(
+    val name: String = "",
+    @SerialName("contact_person") val contactPerson: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val notes: String = "",
+    @SerialName("updated_at") val serverUpdatedAt: String? = null,
+    @SerialName("deleted_at") val serverDeletedAt: String? = null,
+)
+
 /**
  * `receipt_image` is read-only on the wire (never sent on push — see
  * API_CONTRACT.md's `expense` row and its "Expense receipt attachments"
@@ -168,6 +180,7 @@ data class PaymentFieldsDto(
 @Serializable
 data class ExpenseFieldsDto(
     @SerialName("job_id") val jobId: String? = null,
+    @SerialName("supplier_id") val supplierId: String? = null,
     val category: String = "other",
     val description: String = "",
     val amount: String = "0.00",

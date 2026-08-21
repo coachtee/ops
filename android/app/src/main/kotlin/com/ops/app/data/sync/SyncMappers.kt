@@ -11,6 +11,7 @@ import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.local.entities.PaymentEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
+import com.ops.app.data.local.entities.SupplierEntity
 import com.ops.app.data.remote.dto.CustomerFieldsDto
 import com.ops.app.data.remote.dto.ExpenseFieldsDto
 import com.ops.app.data.remote.dto.InvoiceFieldsDto
@@ -20,6 +21,7 @@ import com.ops.app.data.remote.dto.LeadFieldsDto
 import com.ops.app.data.remote.dto.PaymentFieldsDto
 import com.ops.app.data.remote.dto.QuoteFieldsDto
 import com.ops.app.data.remote.dto.QuoteLineItemFieldsDto
+import com.ops.app.data.remote.dto.SupplierFieldsDto
 import com.ops.app.data.remote.dto.SyncChangeDto
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
@@ -430,10 +432,50 @@ fun PaymentFieldsDto.toEntity(
     conflictServerJson = conflictServerJson,
 )
 
+// ---- Supplier --------------------------------------------------------------
+
+fun SupplierEntity.toFieldsDto() = SupplierFieldsDto(
+    name = name,
+    contactPerson = contactPerson,
+    phone = phone,
+    email = email,
+    notes = notes,
+)
+
+fun SupplierEntity.toSyncChange(json: Json) = SyncChangeDto(
+    model = SyncModelKeys.SUPPLIER,
+    id = id,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    fields = json.encodeToJsonElement(toFieldsDto()),
+)
+
+fun SupplierFieldsDto.toEntity(
+    id: String,
+    updatedAt: String,
+    deletedAt: String?,
+    syncState: String,
+    syncError: String? = null,
+    conflictServerJson: String? = null,
+) = SupplierEntity(
+    id = id,
+    name = name,
+    contactPerson = contactPerson,
+    phone = phone,
+    email = email,
+    notes = notes,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    syncState = syncState,
+    syncError = syncError,
+    conflictServerJson = conflictServerJson,
+)
+
 // ---- Expense -------------------------------------------------------------------
 
 fun ExpenseEntity.toFieldsDto() = ExpenseFieldsDto(
     jobId = jobId,
+    supplierId = supplierId,
     category = category,
     description = description,
     amount = amount,
@@ -472,6 +514,7 @@ fun ExpenseFieldsDto.toEntity(
 ) = ExpenseEntity(
     id = id,
     jobId = jobId,
+    supplierId = supplierId,
     category = category,
     description = description,
     amount = amount,

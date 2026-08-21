@@ -27,6 +27,7 @@ class ExpenseRepository @Inject constructor(
     fun observeAll(): Flow<List<ExpenseEntity>> = expenseDao.observeAll()
     fun observeById(id: String): Flow<ExpenseEntity?> = expenseDao.observeById(id)
     fun observeByJobId(jobId: String): Flow<List<ExpenseEntity>> = expenseDao.observeByJobId(jobId)
+    fun observeBySupplierId(supplierId: String): Flow<List<ExpenseEntity>> = expenseDao.observeBySupplierId(supplierId)
     suspend fun getById(id: String): ExpenseEntity? = expenseDao.getById(id)
 
     /**
@@ -39,6 +40,7 @@ class ExpenseRepository @Inject constructor(
     suspend fun save(
         id: String?,
         jobId: String?,
+        supplierId: String?,
         category: String,
         description: String,
         amount: BigDecimal,
@@ -52,6 +54,7 @@ class ExpenseRepository @Inject constructor(
             ExpenseEntity(
                 id = resolvedId,
                 jobId = jobId,
+                supplierId = supplierId,
                 category = category,
                 description = description,
                 amount = amount.toPlainString(),

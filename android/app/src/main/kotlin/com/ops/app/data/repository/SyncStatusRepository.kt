@@ -10,6 +10,7 @@ import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
+import com.ops.app.data.local.dao.SupplierDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -17,7 +18,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Backs the sync status screen: every not-yet-SYNCED row across all 9
+ * Backs the sync status screen: every not-yet-SYNCED row across all 10
  * syncable models, as one flat list, with a retry action and the explicit
  * "Keep mine" / "Use theirs" conflict resolution the brief requires (see
  * DISCOVERY.md section 6 and API_CONTRACT.md's conflict handling) — each
@@ -37,6 +38,7 @@ class SyncStatusRepository @Inject constructor(
     private val invoiceDao: InvoiceDao,
     private val invoiceLineItemDao: InvoiceLineItemDao,
     private val paymentDao: PaymentDao,
+    private val supplierDao: SupplierDao,
     private val expenseDao: ExpenseDao,
     private val leadRepository: LeadRepository,
     private val customerRepository: CustomerRepository,
@@ -44,6 +46,7 @@ class SyncStatusRepository @Inject constructor(
     private val jobRepository: JobRepository,
     private val invoiceRepository: InvoiceRepository,
     private val paymentRepository: PaymentRepository,
+    private val supplierRepository: SupplierRepository,
     private val expenseRepository: ExpenseRepository,
 ) {
     fun observeItems(): Flow<List<SyncStatusItem>> {
@@ -56,6 +59,7 @@ class SyncStatusRepository @Inject constructor(
             invoiceDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Invoice(it) } },
             invoiceLineItemDao.observeUnsynced().map { list -> list.map { SyncStatusItem.InvoiceLineItem(it) } },
             paymentDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Payment(it) } },
+            supplierDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Supplier(it) } },
             expenseDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Expense(it) } },
         )
         return combine(flows) { arrays -> arrays.toList().flatten().sortedBy { priority(it.syncState) } }
@@ -71,6 +75,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Invoice -> invoiceRepository.retry(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.retryLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.retry(item.id)
+            is SyncStatusItem.Supplier -> supplierRepository.retry(item.id)
             is SyncStatusItem.Expense -> expenseRepository.retry(item.id)
         }
     }
@@ -86,6 +91,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Invoice -> invoiceRepository.keepMine(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.keepMineLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.keepMine(item.id)
+            is SyncStatusItem.Supplier -> supplierRepository.keepMine(item.id)
             is SyncStatusItem.Expense -> expenseRepository.keepMine(item.id)
         }
     }
@@ -101,6 +107,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Invoice -> invoiceRepository.useTheirs(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.useTheirsLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.useTheirs(item.id)
+            is SyncStatusItem.Supplier -> supplierRepository.useTheirs(item.id)
             is SyncStatusItem.Expense -> expenseRepository.useTheirs(item.id)
         }
     }

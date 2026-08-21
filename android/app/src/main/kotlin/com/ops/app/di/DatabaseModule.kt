@@ -13,6 +13,7 @@ import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
+import com.ops.app.data.local.dao.SupplierDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -60,4 +61,7 @@ object DatabaseModule {
 
     @Provides
     fun provideExpenseDao(db: OpsDatabase): ExpenseDao = db.expenseDao()
+
+    @Provides
+    fun provideSupplierDao(db: OpsDatabase): SupplierDao = db.supplierDao()
 }

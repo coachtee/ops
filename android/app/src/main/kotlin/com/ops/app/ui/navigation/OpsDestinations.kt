@@ -72,6 +72,16 @@ object OpsDestinations {
     fun expenseEditNew() = "expense_edit/$NONE"
     fun expenseEditExisting(id: String) = "expense_edit/$id"
 
+    /** Suppliers list — reached from the Money tab, not a bottom nav item of
+     * its own (see MoneyScreen). */
+    const val SUPPLIERS = "suppliers"
+
+    /** supplierId is [NONE] when creating a new supplier — one screen serves
+     * both create and edit/view, same convention as expense edit. */
+    const val SUPPLIER_EDIT = "supplier_edit/{supplierId}"
+    fun supplierEditNew() = "supplier_edit/$NONE"
+    fun supplierEditExisting(id: String) = "supplier_edit/$id"
+
     const val SYNC_STATUS = "sync_status"
     const val BUSINESS_PROFILE = "business_profile"
 

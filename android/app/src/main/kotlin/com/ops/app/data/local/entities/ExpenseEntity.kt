@@ -23,6 +23,7 @@ import com.ops.app.data.local.SyncableRecord
 data class ExpenseEntity(
     @PrimaryKey override val id: String,
     val jobId: String?,
+    val supplierId: String?,
     /** [com.ops.coredomain.ExpenseCategory] wire value. */
     val category: String,
     val description: String,
