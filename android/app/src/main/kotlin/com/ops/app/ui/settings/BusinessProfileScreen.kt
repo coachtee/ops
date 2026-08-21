@@ -74,6 +74,7 @@ private data class EditableBusiness(
 @Composable
 fun BusinessProfileScreen(
     onBack: () -> Unit,
+    onOpenEmployees: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: BusinessProfileViewModel = hiltViewModel(),
 ) {
@@ -203,8 +204,13 @@ fun BusinessProfileScreen(
             ) { Text(if (isSaving) "Saving…" else "Save changes") }
 
             OutlinedButton(
+                onClick = onOpenEmployees,
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+            ) { Text("Manage employees") }
+
+            OutlinedButton(
                 onClick = { showLogoutConfirm = true },
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
             ) { Text("Log out") }
         }
     }

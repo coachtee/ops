@@ -6,6 +6,7 @@ import com.ops.coredomain.InvoiceStatus
 import com.ops.coredomain.JobStatus
 import com.ops.coredomain.LeadSource
 import com.ops.coredomain.LeadStatus
+import com.ops.coredomain.PayRateType
 import com.ops.coredomain.PaymentMethod
 import com.ops.coredomain.QuoteStatus
 
@@ -86,6 +87,12 @@ val EXPENSE_CATEGORY_CHOICES = listOf(
     ExpenseCategory.REPAIRS_MAINTENANCE.wire to "Repairs & maintenance",
     ExpenseCategory.WAGES_SUBCONTRACTORS.wire to "Wages & subcontractors",
     ExpenseCategory.OTHER.wire to "Other",
+)
+
+val PAY_RATE_TYPE_CHOICES = listOf(
+    PayRateType.HOURLY.wire to "Hourly",
+    PayRateType.DAILY.wire to "Daily",
+    PayRateType.MONTHLY.wire to "Monthly",
 )
 
 fun labelFor(choices: List<Pair<String, String>>, wireValue: String): String =

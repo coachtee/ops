@@ -3,22 +3,26 @@ package com.ops.app.data.sync
 import com.ops.app.data.local.ReceiptSyncState
 import com.ops.app.data.local.SyncState
 import com.ops.app.data.local.entities.CustomerEntity
+import com.ops.app.data.local.entities.EmployeeEntity
 import com.ops.app.data.local.entities.ExpenseEntity
 import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.InvoiceLineItemEntity
 import com.ops.app.data.local.entities.JobEntity
 import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.local.entities.PaymentEntity
+import com.ops.app.data.local.entities.PayslipEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.local.entities.SupplierEntity
 import com.ops.app.data.remote.dto.CustomerFieldsDto
+import com.ops.app.data.remote.dto.EmployeeFieldsDto
 import com.ops.app.data.remote.dto.ExpenseFieldsDto
 import com.ops.app.data.remote.dto.InvoiceFieldsDto
 import com.ops.app.data.remote.dto.InvoiceLineItemFieldsDto
 import com.ops.app.data.remote.dto.JobFieldsDto
 import com.ops.app.data.remote.dto.LeadFieldsDto
 import com.ops.app.data.remote.dto.PaymentFieldsDto
+import com.ops.app.data.remote.dto.PayslipFieldsDto
 import com.ops.app.data.remote.dto.QuoteFieldsDto
 import com.ops.app.data.remote.dto.QuoteLineItemFieldsDto
 import com.ops.app.data.remote.dto.SupplierFieldsDto
@@ -525,6 +529,98 @@ fun ExpenseFieldsDto.toEntity(
     localReceiptPath = existing?.localReceiptPath,
     receiptSyncState = if (receiptImage != null) ReceiptSyncState.UPLOADED else existing?.receiptSyncState ?: ReceiptSyncState.NONE,
     receiptSyncError = if (receiptImage != null) null else existing?.receiptSyncError,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    syncState = syncState,
+    syncError = syncError,
+    conflictServerJson = conflictServerJson,
+)
+
+// ---- Employee --------------------------------------------------------------
+
+fun EmployeeEntity.toFieldsDto() = EmployeeFieldsDto(
+    name = name,
+    role = role,
+    phone = phone,
+    email = email,
+    payRateType = payRateType,
+    payRate = payRate,
+    startDate = startDate,
+    notes = notes,
+)
+
+fun EmployeeEntity.toSyncChange(json: Json) = SyncChangeDto(
+    model = SyncModelKeys.EMPLOYEE,
+    id = id,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    fields = json.encodeToJsonElement(toFieldsDto()),
+)
+
+fun EmployeeFieldsDto.toEntity(
+    id: String,
+    updatedAt: String,
+    deletedAt: String?,
+    syncState: String,
+    syncError: String? = null,
+    conflictServerJson: String? = null,
+) = EmployeeEntity(
+    id = id,
+    name = name,
+    role = role,
+    phone = phone,
+    email = email,
+    payRateType = payRateType,
+    payRate = payRate,
+    startDate = startDate,
+    notes = notes,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    syncState = syncState,
+    syncError = syncError,
+    conflictServerJson = conflictServerJson,
+)
+
+// ---- Payslip -----------------------------------------------------------------
+
+fun PayslipEntity.toFieldsDto() = PayslipFieldsDto(
+    employeeId = employeeId,
+    periodStart = periodStart,
+    periodEnd = periodEnd,
+    grossPay = grossPay,
+    deductions = deductions,
+    deductionsNote = deductionsNote,
+    paidDate = paidDate,
+    notes = notes,
+    // netPay is read-only on the wire — never sent, see API_CONTRACT.md.
+)
+
+fun PayslipEntity.toSyncChange(json: Json) = SyncChangeDto(
+    model = SyncModelKeys.PAYSLIP,
+    id = id,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    fields = json.encodeToJsonElement(toFieldsDto()),
+)
+
+fun PayslipFieldsDto.toEntity(
+    id: String,
+    updatedAt: String,
+    deletedAt: String?,
+    syncState: String,
+    syncError: String? = null,
+    conflictServerJson: String? = null,
+) = PayslipEntity(
+    id = id,
+    employeeId = employeeId,
+    periodStart = periodStart,
+    periodEnd = periodEnd,
+    grossPay = grossPay,
+    deductions = deductions,
+    deductionsNote = deductionsNote,
+    netPay = netPay,
+    paidDate = paidDate,
+    notes = notes,
     updatedAt = updatedAt,
     deletedAt = deletedAt,
     syncState = syncState,

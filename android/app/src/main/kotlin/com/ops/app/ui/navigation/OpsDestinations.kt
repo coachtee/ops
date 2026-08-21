@@ -82,6 +82,22 @@ object OpsDestinations {
     fun supplierEditNew() = "supplier_edit/$NONE"
     fun supplierEditExisting(id: String) = "supplier_edit/$id"
 
+    /** Employees list — reached from Business Profile/Settings, not a bottom
+     * nav item of its own (see BusinessProfileScreen). */
+    const val EMPLOYEES = "employees"
+
+    /** employeeId is [NONE] when creating a new employee — one screen serves
+     * both create and edit/view, same convention as supplier edit. */
+    const val EMPLOYEE_EDIT = "employee_edit/{employeeId}"
+    fun employeeEditNew() = "employee_edit/$NONE"
+    fun employeeEditExisting(id: String) = "employee_edit/$id"
+
+    /** employeeId is always known; payslipId is [NONE] when creating a new
+     * payslip for that employee. */
+    const val PAYSLIP_EDIT = "payslip_edit/{employeeId}/{payslipId}"
+    fun payslipEditNew(employeeId: String) = "payslip_edit/$employeeId/$NONE"
+    fun payslipEditExisting(employeeId: String, payslipId: String) = "payslip_edit/$employeeId/$payslipId"
+
     const val SYNC_STATUS = "sync_status"
     const val BUSINESS_PROFILE = "business_profile"
 

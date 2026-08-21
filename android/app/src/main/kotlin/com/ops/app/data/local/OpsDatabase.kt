@@ -4,23 +4,27 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.ops.app.data.local.dao.BusinessDao
 import com.ops.app.data.local.dao.CustomerDao
+import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
 import com.ops.app.data.local.dao.InvoiceDao
 import com.ops.app.data.local.dao.InvoiceLineItemDao
 import com.ops.app.data.local.dao.JobDao
 import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
+import com.ops.app.data.local.dao.PayslipDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
 import com.ops.app.data.local.entities.BusinessEntity
 import com.ops.app.data.local.entities.CustomerEntity
+import com.ops.app.data.local.entities.EmployeeEntity
 import com.ops.app.data.local.entities.ExpenseEntity
 import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.InvoiceLineItemEntity
 import com.ops.app.data.local.entities.JobEntity
 import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.local.entities.PaymentEntity
+import com.ops.app.data.local.entities.PayslipEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.local.entities.SupplierEntity
@@ -54,14 +58,16 @@ import com.ops.app.data.local.entities.SupplierEntity
         PaymentEntity::class,
         ExpenseEntity::class,
         SupplierEntity::class,
+        EmployeeEntity::class,
+        PayslipEntity::class,
     ],
-    // v2 added ExpenseEntity; v3 added SupplierEntity + ExpenseEntity.supplierId.
-    // No migration path is defined for any of these — see DatabaseModule's
-    // fallbackToDestructiveMigration(): this app has never shipped, so
-    // there's no installed data to preserve. That won't hold once this
-    // ships for real; a proper Migration is needed for any schema change
-    // after that point.
-    version = 3,
+    // v2 added ExpenseEntity; v3 added SupplierEntity + ExpenseEntity.supplierId;
+    // v4 added EmployeeEntity + PayslipEntity. No migration path is defined
+    // for any of these — see DatabaseModule's fallbackToDestructiveMigration():
+    // this app has never shipped, so there's no installed data to preserve.
+    // That won't hold once this ships for real; a proper Migration is
+    // needed for any schema change after that point.
+    version = 4,
     exportSchema = false,
 )
 abstract class OpsDatabase : RoomDatabase() {
@@ -76,6 +82,8 @@ abstract class OpsDatabase : RoomDatabase() {
     abstract fun paymentDao(): PaymentDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun supplierDao(): SupplierDao
+    abstract fun employeeDao(): EmployeeDao
+    abstract fun payslipDao(): PayslipDao
 
     companion object {
         const val DATABASE_NAME = "ops.db"

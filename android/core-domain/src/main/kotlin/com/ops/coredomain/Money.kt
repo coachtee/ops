@@ -70,6 +70,15 @@ object Money {
                 .divide(BigDecimal.ONE.add(VAT_RATE), 10, RoundingMode.HALF_UP),
         )
     }
+
+    /** A payslip's net pay: always `grossPay - deductions`, quantized to
+     * cents — mirrors backend/people/services.py:recompute_payslip_net_pay
+     * exactly. Never entered by hand, same "derive what can be derived"
+     * pattern as [extractVatFromInclusive]. No PAYE/UIF tax-table
+     * computation happens anywhere in this app, by explicit product-scope
+     * design — deductions is a plain number the owner enters. */
+    fun computeNetPay(grossPay: BigDecimal, deductions: BigDecimal): BigDecimal =
+        quantize(grossPay.subtract(deductions))
 }
 
 /** subtotal / vatAmount / total for a quote or invoice, all quantized to 2dp. */

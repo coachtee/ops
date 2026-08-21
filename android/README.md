@@ -6,10 +6,12 @@ system. See `../docs/DISCOVERY.md` for the product/architecture rationale and
 module implements the V1 vertical slice — business setup, leads, customers, quotes, jobs,
 invoices, payments, the home dashboard, and offline sync — plus the Expenses milestone
 (capture, receipt photo attachment, VAT-inclusive extraction, categories, optional job/project
-link) and the Suppliers milestone that followed it (a simple contact record — who the business
-buys from — linked from Expense.supplier_id, with a picker on the expense form and each
-supplier's own expense history shown read-only on its own screen). See DISCOVERY.md section 10
-for what's still deliberately deferred (Employees/Payslips, Compliance, full Reports).
+link), the Suppliers milestone (a simple contact record — who the business buys from — linked
+from Expense.supplier_id), and the Employees & Payslips milestone that followed it (a staff
+contact + agreed pay rate, and one pay period's gross/deductions/computed-net-pay per
+employee — deliberately no shift tracking, no leave management, no PAYE/UIF tax-table
+computation). See DISCOVERY.md section 10 for what's still deliberately deferred (Compliance,
+full Reports).
 
 ## Module layout
 
@@ -51,10 +53,14 @@ android/
   see `ReceiptSyncState`) — a second state machine independent of the record's own
   `syncState`, since a receipt photo travels through a different sync path (see below), and a
   nullable `supplierId` (v3). `SupplierEntity` is a deliberately small contact record — name,
-  contact person, phone, email, notes — not a vendor-management module. Schema history: `v2`
-  added `ExpenseEntity`; `v3` added `SupplierEntity` and `ExpenseEntity.supplierId`. None of
-  these has a migration path from the version before it — `fallbackToDestructiveMigration()` —
-  since this app has never shipped; that stops being acceptable once it does.
+  contact person, phone, email, notes — not a vendor-management module. `EmployeeEntity`
+  (v4) is the same idea for staff — name, role, contact details, agreed pay rate — and
+  `PayslipEntity` (v4) carries `netPay` always derived from `grossPay - deductions` (never
+  hand-entered), same pattern as `ExpenseEntity.vatAmount`. Schema history: `v2` added
+  `ExpenseEntity`; `v3` added `SupplierEntity` and `ExpenseEntity.supplierId`; `v4` added
+  `EmployeeEntity` and `PayslipEntity`. None of these has a migration path from the version
+  before it — `fallbackToDestructiveMigration()` — since this app has never shipped; that
+  stops being acceptable once it does.
 - `data/remote/` — Retrofit `OpsApiService` (every endpoint in API_CONTRACT.md, including the
   multipart `POST /api/expenses/{id}/receipt/`), kotlinx.serialization DTOs,
   `AuthHeaderInterceptor` + `TokenAuthenticator` (401 → refresh once → retry).
@@ -66,17 +72,20 @@ android/
   per-record and never fails the overall sync outcome. Plus `SyncWorker` (WorkManager, ~15 min
   periodic heartbeat + expedited one-time trigger after local writes).
 - `data/repository/` — one repository per aggregate (Lead, Customer, Quote+line items,
-  Job, Invoice+line items, Payment, Supplier, Expense, Business, Auth) plus
+  Job, Invoice+line items, Payment, Supplier, Expense, Employee, Payslip, Business, Auth) plus
   `SyncStatusRepository` for the sync status screen's cross-model view.
   `ExpenseRepository.attachReceipt`/`retryReceipt` manage the receipt state machine;
-  `save`/`delete` are the usual PENDING-then-sync pattern, same for `SupplierRepository`.
+  `save`/`delete` are the usual PENDING-then-sync pattern, same for `SupplierRepository` and
+  `EmployeeRepository`. `PayslipRepository.save` computes `netPay` locally via the new
+  `Money.computeNetPay` (core-domain) before writing, same instant-offline-UI reasoning as
+  `ExpenseRepository.save`'s VAT extraction.
 - `di/` — Hilt modules for Room, Retrofit/OkHttp, WorkManager. `AuthPreferences`
   (DataStore-backed) and every repository are constructor-injected directly (`@Inject
   constructor`), which is itself Hilt DI — no separate binding module is needed for concrete
   classes with no interface to bind against.
 - `ui/` — one package per screen area (`splash`, `businesssetup`, `home`, `leads`,
-  `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `suppliers`, `money`,
-  `syncstatus`, `settings`), each with a `@HiltViewModel` + a Compose screen, plus
+  `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `suppliers`, `employees`,
+  `money`, `syncstatus`, `settings`), each with a `@HiltViewModel` + a Compose screen, plus
   `ui/navigation/OpsNavGraph.kt` wiring all of them together and `ui/components/` for shared
   pieces (money/date formatting, the sync status chip, the branded quote/invoice letterhead, a
   date picker field, dropdowns). `ui/expenses/ExpenseEditScreen` is one screen for create,
@@ -88,7 +97,14 @@ android/
   and a read-only list of that supplier's expenses below the form); `SupplierListScreen` is a
   plain alphabetical contact list, reached from the Money tab rather than its own bottom-nav
   tab — "Money in → Money out → Expenses → Suppliers" is one conceptual thread, not a separate
-  app section.
+  app section. `ui/employees/EmployeeEditScreen` follows the identical single-screen pattern
+  (plus a "Payslips" section listing that employee's payslip history, each row navigating to
+  `PayslipEditScreen`); `EmployeeListScreen` is reached from Business Profile/Settings rather
+  than the Money tab or a bottom-nav tab of its own — staff management reads as "part of
+  running the business" to a real owner, not a daily transactional workflow like leads or
+  invoices. `PayslipEditScreen` is its own single create/edit/view/delete screen (period dates,
+  gross pay, deductions, a live computed net-pay line, "mark as paid today", and a plain-text
+  "Share payslip" action via `Intent.ACTION_SEND` — no PDF, same as quote/invoice "Send").
 
 ## Demo script
 
@@ -119,6 +135,10 @@ Then, in the Android app (emulator or device on the same network as the backend)
    next sync cycle once the expense record itself has synced. Home's "Money out" tile and the
    Money tab's Expenses section both update from the same local data immediately, offline or
    not.
+6. Home → gear icon (top-right) → Business profile → **Manage employees** → open Bongani
+   Sithole (Thabo's seeded plumber's assistant) → **+** under Payslips → gross pay and
+   deductions, net pay works itself out → Save → **Mark as paid today** once the money's
+   actually gone out.
 
 `app/build.gradle.kts`'s debug `BASE_URL` is `http://10.0.2.2:8000/` — the Android emulator's
 alias for the host machine's localhost, matching `runserver 0.0.0.0:8000` above. A physical
@@ -159,35 +179,36 @@ Android Gradle Plugin dependency, so it needs neither the wrapper nor an SDK:
 ```
 $ gradle :core-domain:test --rerun
 ...
-BUILD SUCCESSFUL in 21s
-4 actionable tasks: 1 executed, 3 up-to-date
+BUILD SUCCESSFUL in 20s
+4 actionable tasks: 4 executed
 ```
 
-36 tests, 36 passing, 0 failures, 0 errors — confirmed via both the console output and the
+39 tests, 39 passing, 0 failures, 0 errors — confirmed via both the console output and the
 JUnit XML result files (`core-domain/build/test-results/test/*.xml`), broken down as:
 
 | Test class                     | Tests | Covers |
 |---------------------------------|:---:|---|
-| `MoneyTest`                     |  9  | Line total rounding, VAT with/without, discount before VAT, discount > subtotal never negative, empty line items, half-up vs half-even, fractional quantities, the flat 15% rate itself |
+| `MoneyTest`                     | 11  | Line total rounding, VAT with/without, discount before VAT, discount > subtotal never negative, empty line items, half-up vs half-even, fractional quantities, the flat 15% rate itself, and (new this milestone) net pay = gross - deductions, net pay with zero deductions |
 | `VatInclusiveExtractionTest`    |  5  | Clean multiples of 115 extract exactly, unclean divisions round half-up, not-VAT-applicable and zero-amount both extract R0.00 — mirrors `backend/tests/test_money.py`'s `VatInclusiveExtractionTests` case-for-case |
 | `SyncDecisionTest`              |  5  | No existing row, incoming strictly newer, existing newer (conflict), equal timestamps (conflict — this is also what makes a replayed push idempotent), sub-second precision |
 | `IsoTimestampTest`              |  7  | `Z` suffix never `+00:00` (and never a raw `+` at all), zero-microsecond formatting, round-trip through format+parse, nanosecond truncation, the contract's own example value, no-fraction parsing, defensive offset-form parsing |
-| `EnumsTest`                     | 10  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value |
+| `EnumsTest`                     | 11  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value, and (new this milestone) `PayRateType`'s three values match `Employee.PAY_RATE_TYPE_CHOICES` |
 
 This is the one hard verification gate for this deliverable, and it's genuinely green — not
-asserted, run. The Suppliers milestone added no `core-domain` code (no new enum, no new money
-direction — a supplier is a plain contact record), so this table is unchanged from the Expenses
-milestone; re-run above to confirm nothing regressed.
+asserted, run. This milestone added one `core-domain` enum (`PayRateType`) and one function
+(`Money.computeNetPay`, mirroring `backend/people/services.py:recompute_payslip_net_pay`
+exactly — always `gross_pay - deductions`, quantized to cents, no PAYE/UIF tax-table logic
+anywhere) — both covered above.
 
 **Written but NOT compiled or run here — the `app` module:**
 
-Every file under `app/src/main/kotlin` (112 Kotlin files as of the Suppliers milestone —
-Room entities/DAOs, Retrofit service/DTOs, the sync engine, ten repositories, Hilt modules,
-and 18 Compose screens with their ViewModels) was written carefully, by hand, cross-checking
-every field name, wire enum value, and endpoint path against `API_CONTRACT.md` and the actual
-Django serializers/models in `../backend/` — but **`app:compileDebugKotlin` was never
-successfully run**, because it cannot succeed here: AGP needs `android.jar` from an installed
-SDK to compile against, and this sandbox has neither the SDK nor network access to
+Every file under `app/src/main/kotlin` (124 Kotlin files as of the Employees & Payslips
+milestone — Room entities/DAOs, Retrofit service/DTOs, the sync engine, twelve repositories,
+Hilt modules, and 24 Compose screens with their ViewModels) was written carefully, by hand,
+cross-checking every field name, wire enum value, and endpoint path against `API_CONTRACT.md`
+and the actual Django serializers/models in `../backend/` — but **`app:compileDebugKotlin` was
+never successfully run**, because it cannot succeed here: AGP needs `android.jar` from an
+installed SDK to compile against, and this sandbox has neither the SDK nor network access to
 `dl.google.com` to fetch AGP's own plugin artifact in the first place. Re-confirmed for this
 milestone:
 
@@ -257,9 +278,35 @@ From the Suppliers milestone:
   had a leftover no-op `Modifier.let { m -> if (...) m else m }` block that did nothing.
   Fixed — the list is now clickable via `onOpenExpense`, and the dead conditional removed.
 
+From the Employees & Payslips milestone:
+
+- `OpsNavGraph`'s `EMPLOYEE_EDIT` composable originally read the `employeeId` it passed to
+  `onOpenPayslip`/`onNewPayslip` straight off the static `NavBackStackEntry` route argument.
+  That argument stays the `NONE` sentinel for the whole lifetime of that composable instance —
+  it does not update just because `EmployeeEditViewModel.save()` internally resolves a real
+  UUID after the first save. Concretely: create a new employee, save it, then immediately tap
+  "+ New payslip" without leaving the screen, and the payslip would have been navigated to with
+  `employeeId=NONE` instead of the just-created employee's real id — a payslip with no valid
+  employee to attach to. Caught by re-tracing exactly when each id in that call chain is
+  actually assigned, not by any test (there's no compiler or instrumented test to catch a
+  same-composable-instance stale-arg bug like this). Fixed by changing
+  `onOpenPayslip`/`onNewPayslip`'s signatures to take the employee id as a parameter supplied
+  by `EmployeeEditScreen` itself at click-time (from its own live `uiState.employeeId`, which
+  *is* correctly updated after save) rather than one closed over from the nav graph.
+  `PayslipEditViewModel` also needed this: employee id is a required nav argument there, not
+  optional, so this bug would otherwise have surfaced as `checkNotNull` throwing on a literal
+  `"_"` string rather than a clean crash — worth naming since it's the kind of thing that would
+  have been very confusing to debug from a stack trace alone.
+- `SyncStatusRepository`'s three `when (item) { ... }` blocks (retry/keepMine/useTheirs) were
+  extended with `EmployeeDao`/`PayslipDao`/`EmployeeRepository`/`PayslipRepository` constructor
+  parameters and the two new `observeUnsynced()` flows in one pass this time — a direct
+  consequence of the identical gap being caught (and having to be fixed as a follow-up edit)
+  during the Suppliers milestone; re-reading the file confirmed all three blocks are exhaustive
+  over the now-twelve-subclass `SyncStatusItem` sealed class.
+
 All of the above are exactly the kind of thing a real `compileDebugKotlin` (or a runtime smoke
 test) would catch immediately, which is why this section says "written, not verified" rather
-than "done" — the same class of mistake could plausibly still be sitting somewhere in these 112
+than "done" — the same class of mistake could plausibly still be sitting somewhere in these 124
 files this sandbox couldn't compile. **Confirming the `app` module actually builds and runs
 needs Android Studio or CI with a real Android SDK** — that hasn't happened yet.
 
@@ -280,14 +327,24 @@ needs Android Studio or CI with a real Android SDK** — that hasn't happened ye
   the demo script requiring it to log into the *already-seeded* Thabo's Plumbing account
   rather than registering a second, empty one, both make this a necessary addition, not
   scope creep — it is a second state of the same one screen, not a new one.
-- **Employees/Payslips, Compliance reminders, and full Reports are not built** —
-  DISCOVERY.md section 10 explicitly scopes these to later milestones; no screens or
-  navigation for them exist.
+- **Compliance reminders and full Reports are not built** — DISCOVERY.md section 10
+  explicitly scopes these to later milestones; no screens or navigation for them exist.
 - **Suppliers is a contact record, not a vendor-management module.** Name, contact person,
   phone, email, notes — that's the whole model, matching how a real small-business owner
   actually tracks "who I buy from" (a phone number to call, not a procurement workflow). "What
   have I bought from them" is answered by filtering that supplier's own `Expense` rows (shown
   read-only on the supplier's own screen), not a separate purchase-order/ledger concept.
+- **Employees & Payslips is deliberately not a workforce-management system.** No shift or
+  hours tracking, no leave management, no org chart — `Employee` is a staff contact plus the
+  agreed pay rate (shown back as a reminder, never used to auto-compute anything), and
+  `Payslip` is one pay period's gross pay, deductions, and derived net pay. This app makes no
+  claim of PAYE/UIF payroll-tax accuracy or e-filing — `deductions` is a plain number the owner
+  types in (from their bookkeeper, or whatever they know to withhold), not a computed tax-table
+  result. `EmployeeListScreen` is reached from Business Profile/Settings, not its own bottom-nav
+  tab or nested under Money — staff management reads as an administrative task, not a daily
+  transactional one, for a real SA trade business owner.
+- **Payslip "sharing" is a plain-text summary**, same `Intent.ACTION_SEND` pattern as
+  quote/invoice "Send" — no generated PDF, consistent with the "No PDF rendering" note above.
 - **One Expense screen, not three.** The original screen list sketched list/new-edit/detail as
   separate screens; built instead as one `ExpenseEditScreen` (create, edit, view, delete, and
   receipt capture all in place) plus the list folded into the Money tab's existing feed

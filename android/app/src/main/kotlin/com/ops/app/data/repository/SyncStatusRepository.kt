@@ -2,12 +2,14 @@ package com.ops.app.data.repository
 
 import com.ops.app.data.local.SyncState
 import com.ops.app.data.local.dao.CustomerDao
+import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
 import com.ops.app.data.local.dao.InvoiceDao
 import com.ops.app.data.local.dao.InvoiceLineItemDao
 import com.ops.app.data.local.dao.JobDao
 import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
+import com.ops.app.data.local.dao.PayslipDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
@@ -18,7 +20,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Backs the sync status screen: every not-yet-SYNCED row across all 10
+ * Backs the sync status screen: every not-yet-SYNCED row across all 12
  * syncable models, as one flat list, with a retry action and the explicit
  * "Keep mine" / "Use theirs" conflict resolution the brief requires (see
  * DISCOVERY.md section 6 and API_CONTRACT.md's conflict handling) — each
@@ -40,6 +42,8 @@ class SyncStatusRepository @Inject constructor(
     private val paymentDao: PaymentDao,
     private val supplierDao: SupplierDao,
     private val expenseDao: ExpenseDao,
+    private val employeeDao: EmployeeDao,
+    private val payslipDao: PayslipDao,
     private val leadRepository: LeadRepository,
     private val customerRepository: CustomerRepository,
     private val quoteRepository: QuoteRepository,
@@ -48,6 +52,8 @@ class SyncStatusRepository @Inject constructor(
     private val paymentRepository: PaymentRepository,
     private val supplierRepository: SupplierRepository,
     private val expenseRepository: ExpenseRepository,
+    private val employeeRepository: EmployeeRepository,
+    private val payslipRepository: PayslipRepository,
 ) {
     fun observeItems(): Flow<List<SyncStatusItem>> {
         val flows: List<Flow<List<SyncStatusItem>>> = listOf(
@@ -61,6 +67,8 @@ class SyncStatusRepository @Inject constructor(
             paymentDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Payment(it) } },
             supplierDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Supplier(it) } },
             expenseDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Expense(it) } },
+            employeeDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Employee(it) } },
+            payslipDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Payslip(it) } },
         )
         return combine(flows) { arrays -> arrays.toList().flatten().sortedBy { priority(it.syncState) } }
     }
@@ -77,6 +85,8 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Payment -> paymentRepository.retry(item.id)
             is SyncStatusItem.Supplier -> supplierRepository.retry(item.id)
             is SyncStatusItem.Expense -> expenseRepository.retry(item.id)
+            is SyncStatusItem.Employee -> employeeRepository.retry(item.id)
+            is SyncStatusItem.Payslip -> payslipRepository.retry(item.id)
         }
     }
 
@@ -93,6 +103,8 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Payment -> paymentRepository.keepMine(item.id)
             is SyncStatusItem.Supplier -> supplierRepository.keepMine(item.id)
             is SyncStatusItem.Expense -> expenseRepository.keepMine(item.id)
+            is SyncStatusItem.Employee -> employeeRepository.keepMine(item.id)
+            is SyncStatusItem.Payslip -> payslipRepository.keepMine(item.id)
         }
     }
 
@@ -109,6 +121,8 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Payment -> paymentRepository.useTheirs(item.id)
             is SyncStatusItem.Supplier -> supplierRepository.useTheirs(item.id)
             is SyncStatusItem.Expense -> expenseRepository.useTheirs(item.id)
+            is SyncStatusItem.Employee -> employeeRepository.useTheirs(item.id)
+            is SyncStatusItem.Payslip -> payslipRepository.useTheirs(item.id)
         }
     }
 

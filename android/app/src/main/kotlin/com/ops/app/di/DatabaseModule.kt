@@ -5,12 +5,14 @@ import androidx.room.Room
 import com.ops.app.data.local.OpsDatabase
 import com.ops.app.data.local.dao.BusinessDao
 import com.ops.app.data.local.dao.CustomerDao
+import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
 import com.ops.app.data.local.dao.InvoiceDao
 import com.ops.app.data.local.dao.InvoiceLineItemDao
 import com.ops.app.data.local.dao.JobDao
 import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
+import com.ops.app.data.local.dao.PayslipDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
@@ -64,4 +66,10 @@ object DatabaseModule {
 
     @Provides
     fun provideSupplierDao(db: OpsDatabase): SupplierDao = db.supplierDao()
+
+    @Provides
+    fun provideEmployeeDao(db: OpsDatabase): EmployeeDao = db.employeeDao()
+
+    @Provides
+    fun providePayslipDao(db: OpsDatabase): PayslipDao = db.payslipDao()
 }

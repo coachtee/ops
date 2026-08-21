@@ -11,6 +11,9 @@ import com.ops.app.ui.businesssetup.BusinessSetupScreen
 import com.ops.app.ui.customers.CustomerDetailScreen
 import com.ops.app.ui.customers.CustomerListScreen
 import com.ops.app.ui.customers.NewCustomerScreen
+import com.ops.app.ui.employees.EmployeeEditScreen
+import com.ops.app.ui.employees.EmployeeListScreen
+import com.ops.app.ui.employees.PayslipEditScreen
 import com.ops.app.ui.expenses.ExpenseEditScreen
 import com.ops.app.ui.home.HomeScreen
 import com.ops.app.ui.invoices.InvoiceEditScreen
@@ -273,6 +276,43 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
             )
         }
 
+        composable(OpsDestinations.EMPLOYEES) {
+            EmployeeListScreen(
+                onBack = { navController.popBackStack() },
+                onOpenEmployee = { navController.navigate(OpsDestinations.employeeEditExisting(it)) },
+                onNewEmployee = { navController.navigate(OpsDestinations.employeeEditNew()) },
+            )
+        }
+
+        composable(
+            route = OpsDestinations.EMPLOYEE_EDIT,
+            arguments = listOf(navArgument("employeeId") { type = NavType.StringType }),
+        ) {
+            EmployeeEditScreen(
+                onBack = { navController.popBackStack() },
+                // employeeId here is always the real, current one — passed
+                // up from the screen's own live uiState, not the route arg
+                // (which is still the NONE sentinel until this employee's
+                // first save, even after that save resolves a real id).
+                onOpenPayslip = { employeeId, payslipId ->
+                    navController.navigate(OpsDestinations.payslipEditExisting(employeeId, payslipId))
+                },
+                onNewPayslip = { employeeId ->
+                    navController.navigate(OpsDestinations.payslipEditNew(employeeId))
+                },
+            )
+        }
+
+        composable(
+            route = OpsDestinations.PAYSLIP_EDIT,
+            arguments = listOf(
+                navArgument("employeeId") { type = NavType.StringType },
+                navArgument("payslipId") { type = NavType.StringType },
+            ),
+        ) {
+            PayslipEditScreen(onBack = { navController.popBackStack() })
+        }
+
         composable(OpsDestinations.SYNC_STATUS) {
             SyncStatusScreen(onBack = { navController.popBackStack() })
         }
@@ -280,6 +320,7 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
         composable(OpsDestinations.BUSINESS_PROFILE) {
             BusinessProfileScreen(
                 onBack = { navController.popBackStack() },
+                onOpenEmployees = { navController.navigate(OpsDestinations.EMPLOYEES) },
                 onLoggedOut = {
                     navController.navigate(OpsDestinations.BUSINESS_SETUP) {
                         popUpTo(0) { inclusive = true }

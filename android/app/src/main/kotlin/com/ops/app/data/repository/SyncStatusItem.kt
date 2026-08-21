@@ -1,12 +1,14 @@
 package com.ops.app.data.repository
 
 import com.ops.app.data.local.entities.CustomerEntity
+import com.ops.app.data.local.entities.EmployeeEntity
 import com.ops.app.data.local.entities.ExpenseEntity
 import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.InvoiceLineItemEntity
 import com.ops.app.data.local.entities.JobEntity
 import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.local.entities.PaymentEntity
+import com.ops.app.data.local.entities.PayslipEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.local.entities.SupplierEntity
@@ -52,4 +54,10 @@ sealed class SyncStatusItem(
 
     class Supplier(val entity: SupplierEntity) :
         SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Supplier", entity.name)
+
+    class Employee(val entity: EmployeeEntity) :
+        SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Employee", entity.name)
+
+    class Payslip(val entity: PayslipEntity) :
+        SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Payslip", "${entity.periodStart} – ${entity.periodEnd}")
 }

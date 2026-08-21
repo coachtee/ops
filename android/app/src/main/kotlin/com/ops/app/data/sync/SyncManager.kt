@@ -5,23 +5,27 @@ import com.ops.app.data.local.ReceiptSyncState
 import com.ops.app.data.local.SyncState
 import com.ops.app.data.local.SyncableRecord
 import com.ops.app.data.local.dao.CustomerDao
+import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
 import com.ops.app.data.local.dao.InvoiceDao
 import com.ops.app.data.local.dao.InvoiceLineItemDao
 import com.ops.app.data.local.dao.JobDao
 import com.ops.app.data.local.dao.LeadDao
 import com.ops.app.data.local.dao.PaymentDao
+import com.ops.app.data.local.dao.PayslipDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
 import com.ops.app.data.remote.OpsApiService
 import com.ops.app.data.remote.dto.CustomerFieldsDto
+import com.ops.app.data.remote.dto.EmployeeFieldsDto
 import com.ops.app.data.remote.dto.ExpenseFieldsDto
 import com.ops.app.data.remote.dto.InvoiceFieldsDto
 import com.ops.app.data.remote.dto.InvoiceLineItemFieldsDto
 import com.ops.app.data.remote.dto.JobFieldsDto
 import com.ops.app.data.remote.dto.LeadFieldsDto
 import com.ops.app.data.remote.dto.PaymentFieldsDto
+import com.ops.app.data.remote.dto.PayslipFieldsDto
 import com.ops.app.data.remote.dto.QuoteFieldsDto
 import com.ops.app.data.remote.dto.QuoteLineItemFieldsDto
 import com.ops.app.data.remote.dto.SupplierFieldsDto
@@ -64,7 +68,7 @@ sealed interface SyncOutcome {
  * called from a coroutine/WorkManager worker the UI merely observes via
  * [observeChipState] / each screen's Room [Flow]s):
  *
- *  1. Gather every PENDING/FAILED row across all 10 syncable DAOs into ONE
+ *  1. Gather every PENDING/FAILED row across all 12 syncable DAOs into ONE
  *     `POST /api/sync/push/` batch (any order — the server applies a fixed
  *     dependency order within the batch, see API_CONTRACT.md).
  *  2. Mark them SYNCING first. Per result: `accepted` -> overwrite local
@@ -107,6 +111,8 @@ class SyncManager @Inject constructor(
     private val paymentDao: PaymentDao,
     private val supplierDao: SupplierDao,
     private val expenseDao: ExpenseDao,
+    private val employeeDao: EmployeeDao,
+    private val payslipDao: PayslipDao,
     private val apiService: OpsApiService,
     private val authPreferences: AuthPreferences,
     private val json: Json,
@@ -115,7 +121,7 @@ class SyncManager @Inject constructor(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    /** Every syncable row not yet cleanly SYNCED, across all 10 models — feeds
+    /** Every syncable row not yet cleanly SYNCED, across all 12 models — feeds
      * the top-bar chip. The sync status screen instead combines the typed
      * per-model DAO flows directly (via SyncStatusRepository) so it can show
      * per-record labels, not just counts. */
@@ -130,6 +136,8 @@ class SyncManager @Inject constructor(
         paymentDao.observeUnsynced(),
         supplierDao.observeUnsynced(),
         expenseDao.observeUnsynced(),
+        employeeDao.observeUnsynced(),
+        payslipDao.observeUnsynced(),
     )
 
     fun observeChipState(): Flow<SyncChipState> =
@@ -174,10 +182,12 @@ class SyncManager @Inject constructor(
         val paymentOutbox = paymentDao.getOutbox()
         val supplierOutbox = supplierDao.getOutbox()
         val expenseOutbox = expenseDao.getOutbox()
+        val employeeOutbox = employeeDao.getOutbox()
+        val payslipOutbox = payslipDao.getOutbox()
 
         val total = leadOutbox.size + customerOutbox.size + quoteOutbox.size + quoteLineItemOutbox.size +
             jobOutbox.size + invoiceOutbox.size + invoiceLineItemOutbox.size + paymentOutbox.size +
-            supplierOutbox.size + expenseOutbox.size
+            supplierOutbox.size + expenseOutbox.size + employeeOutbox.size + payslipOutbox.size
         if (total == 0) return
 
         leadOutbox.forEach { leadDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
@@ -190,6 +200,8 @@ class SyncManager @Inject constructor(
         paymentOutbox.forEach { paymentDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
         supplierOutbox.forEach { supplierDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
         expenseOutbox.forEach { expenseDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
+        employeeOutbox.forEach { employeeDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
+        payslipOutbox.forEach { payslipDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
 
         val changes: List<SyncChangeDto> = buildList {
             leadOutbox.forEach { add(it.toSyncChange(json)) }
@@ -202,6 +214,8 @@ class SyncManager @Inject constructor(
             paymentOutbox.forEach { add(it.toSyncChange(json)) }
             supplierOutbox.forEach { add(it.toSyncChange(json)) }
             expenseOutbox.forEach { add(it.toSyncChange(json)) }
+            employeeOutbox.forEach { add(it.toSyncChange(json)) }
+            payslipOutbox.forEach { add(it.toSyncChange(json)) }
         }
 
         val response = try {
@@ -221,6 +235,8 @@ class SyncManager @Inject constructor(
             paymentOutbox.forEach { paymentDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             supplierOutbox.forEach { supplierDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             expenseOutbox.forEach { expenseDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
+            employeeOutbox.forEach { employeeDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
+            payslipOutbox.forEach { payslipDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             throw e
         }
 
@@ -318,6 +334,24 @@ class SyncManager @Inject constructor(
                     else -> expenseDao.upsert(existing.copy(syncState = SyncState.FAILED, syncError = result.errors.toSyncErrorMessage()))
                 }
             }
+
+            SyncModelKeys.EMPLOYEE -> employeeDao.getById(result.id)?.let { existing ->
+                when (result.status) {
+                    "accepted" -> result.serverRecord?.let { json.decodeFromJsonElement<EmployeeFieldsDto>(it) }
+                        ?.let { dto -> employeeDao.upsert(dto.toEntity(result.id, dto.serverUpdatedAt ?: existing.updatedAt, dto.serverDeletedAt, SyncState.SYNCED)) }
+                    "conflict" -> employeeDao.upsert(existing.copy(syncState = SyncState.CONFLICT, syncError = null, conflictServerJson = result.serverRecord?.toString()))
+                    else -> employeeDao.upsert(existing.copy(syncState = SyncState.FAILED, syncError = result.errors.toSyncErrorMessage()))
+                }
+            }
+
+            SyncModelKeys.PAYSLIP -> payslipDao.getById(result.id)?.let { existing ->
+                when (result.status) {
+                    "accepted" -> result.serverRecord?.let { json.decodeFromJsonElement<PayslipFieldsDto>(it) }
+                        ?.let { dto -> payslipDao.upsert(dto.toEntity(result.id, dto.serverUpdatedAt ?: existing.updatedAt, dto.serverDeletedAt, SyncState.SYNCED)) }
+                    "conflict" -> payslipDao.upsert(existing.copy(syncState = SyncState.CONFLICT, syncError = null, conflictServerJson = result.serverRecord?.toString()))
+                    else -> payslipDao.upsert(existing.copy(syncState = SyncState.FAILED, syncError = result.errors.toSyncErrorMessage()))
+                }
+            }
         }
     }
 
@@ -387,6 +421,16 @@ class SyncManager @Inject constructor(
                         .toEntity(change.id, change.updatedAt, change.deletedAt, SyncState.SYNCED, existing = existingExpense)
                 }?.let { expenseDao.upsert(it) }
             }
+
+            SyncModelKeys.EMPLOYEE -> applyPull(employeeDao.getById(change.id), incomingUpdatedAt) {
+                json.decodeFromJsonElement<EmployeeFieldsDto>(change.fields)
+                    .toEntity(change.id, change.updatedAt, change.deletedAt, SyncState.SYNCED)
+            }?.let { employeeDao.upsert(it) }
+
+            SyncModelKeys.PAYSLIP -> applyPull(payslipDao.getById(change.id), incomingUpdatedAt) {
+                json.decodeFromJsonElement<PayslipFieldsDto>(change.fields)
+                    .toEntity(change.id, change.updatedAt, change.deletedAt, SyncState.SYNCED)
+            }?.let { payslipDao.upsert(it) }
         }
     }
 

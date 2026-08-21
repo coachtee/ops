@@ -95,6 +95,16 @@ class MoneyTest {
         val result = Money.computeLineTotal(BigDecimal("2.5"), BigDecimal("450.00"))
         assertEquals(BigDecimal("1125.00"), result)
     }
+
+    @Test
+    fun `net pay is gross minus deductions`() {
+        assertEquals(BigDecimal("3250.00"), Money.computeNetPay(BigDecimal("3400.00"), BigDecimal("150.00")))
+    }
+
+    @Test
+    fun `net pay with zero deductions equals gross pay`() {
+        assertEquals(BigDecimal("3400.00"), Money.computeNetPay(BigDecimal("3400.00"), BigDecimal("0.00")))
+    }
 }
 
 /**

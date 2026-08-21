@@ -74,6 +74,11 @@ class EnumsTest {
     }
 
     @Test
+    fun `pay rate type wire values match people models Employee PAY_RATE_TYPE_CHOICES`() {
+        assertEquals(listOf("hourly", "daily", "monthly"), PayRateType.entries.map { it.wire })
+    }
+
+    @Test
     fun `fromWire round trips every enum value`() {
         LeadSource.entries.forEach { assertEquals(it, LeadSource.fromWire(it.wire)) }
         LeadStatus.entries.forEach { assertEquals(it, LeadStatus.fromWire(it.wire)) }
@@ -83,6 +88,7 @@ class EnumsTest {
         InvoiceStatus.entries.forEach { assertEquals(it, InvoiceStatus.fromWire(it.wire)) }
         PaymentMethod.entries.forEach { assertEquals(it, PaymentMethod.fromWire(it.wire)) }
         ExpenseCategory.entries.forEach { assertEquals(it, ExpenseCategory.fromWire(it.wire)) }
+        PayRateType.entries.forEach { assertEquals(it, PayRateType.fromWire(it.wire)) }
     }
 
     @Test

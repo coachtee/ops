@@ -191,3 +191,41 @@ data class ExpenseFieldsDto(
     @SerialName("updated_at") val serverUpdatedAt: String? = null,
     @SerialName("deleted_at") val serverDeletedAt: String? = null,
 )
+
+/** A staff contact plus the agreed pay rate — see Employee's model doc
+ * comment. `pay_rate`/`pay_rate_type` are informational, never used to
+ * auto-compute a payslip's gross_pay. */
+@Serializable
+data class EmployeeFieldsDto(
+    val name: String = "",
+    val role: String = "",
+    val phone: String = "",
+    val email: String = "",
+    @SerialName("pay_rate_type") val payRateType: String = "monthly",
+    @SerialName("pay_rate") val payRate: String = "0.00",
+    @SerialName("start_date") val startDate: String? = null,
+    val notes: String = "",
+    @SerialName("updated_at") val serverUpdatedAt: String? = null,
+    @SerialName("deleted_at") val serverDeletedAt: String? = null,
+)
+
+/**
+ * `net_pay` is read-only on the wire (never sent on push — the server
+ * always recomputes `gross_pay - deductions`, same pattern as
+ * `ExpenseFieldsDto.vatAmount`) — this app makes no claim of PAYE/UIF
+ * payroll-tax accuracy, see API_CONTRACT.md's `payslip` row.
+ */
+@Serializable
+data class PayslipFieldsDto(
+    @SerialName("employee_id") val employeeId: String = "",
+    @SerialName("period_start") val periodStart: String = "",
+    @SerialName("period_end") val periodEnd: String = "",
+    @SerialName("gross_pay") val grossPay: String = "0.00",
+    val deductions: String = "0.00",
+    @SerialName("deductions_note") val deductionsNote: String = "",
+    @SerialName("net_pay") val netPay: String = "0.00",
+    @SerialName("paid_date") val paidDate: String? = null,
+    val notes: String = "",
+    @SerialName("updated_at") val serverUpdatedAt: String? = null,
+    @SerialName("deleted_at") val serverDeletedAt: String? = null,
+)
