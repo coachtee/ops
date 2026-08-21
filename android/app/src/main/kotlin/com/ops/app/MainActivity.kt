@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Home
@@ -51,14 +52,17 @@ private val BOTTOM_NAV_ITEMS = listOf(
     BottomNavItem(OpsDestinations.LEADS, "Leads", Icons.Filled.Handshake),
     BottomNavItem(OpsDestinations.CUSTOMERS_PICKABLE, "Customers", Icons.Filled.Group),
     BottomNavItem(OpsDestinations.MONEY, "Money", Icons.Filled.Payments),
+    BottomNavItem(OpsDestinations.REPORTS, "Reports", Icons.Filled.Assessment),
 )
 
 /**
- * Bottom navigation, four destinations, per DISCOVERY.md section 5's IA.
- * Shown only on those four top-level screens — every deeper screen (lead
- * detail, quote edit, sync status, ...) is reached by pushing onto the back
- * stack and has its own back arrow, keeping the "nothing nested more than
- * two levels deep" rule visible in the navigation itself.
+ * Bottom navigation, five destinations, per DISCOVERY.md section 5's IA
+ * (Reports joined as a fifth once it was built — see that section for why
+ * it earned top-level placement while Suppliers/Employees/Compliance did
+ * not). Shown only on those five top-level screens — every deeper screen
+ * (lead detail, quote edit, sync status, ...) is reached by pushing onto
+ * the back stack and has its own back arrow, keeping the "nothing nested
+ * more than two levels deep" rule visible in the navigation itself.
  */
 @Composable
 fun OpsApp() {

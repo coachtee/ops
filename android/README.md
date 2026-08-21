@@ -9,11 +9,14 @@ invoices, payments, the home dashboard, and offline sync — plus the Expenses m
 link), the Suppliers milestone (a simple contact record — who the business buys from — linked
 from Expense.supplier_id), the Employees & Payslips milestone (a staff contact + agreed pay
 rate, and one pay period's gross/deductions/computed-net-pay per employee — deliberately no
-shift tracking, no leave management, no PAYE/UIF tax-table computation), and the Compliance
+shift tracking, no leave management, no PAYE/UIF tax-table computation), the Compliance
 milestone that followed it (a plain owner-managed deadline checklist — VAT return, PAYE/UIF/
 SDL, provisional tax, CIPC annual return, or anything else the owner adds — with a due date, a
-tick-off, and an on-screen reminder every time that nothing here files with SARS or CIPC). See
-DISCOVERY.md section 10 for what's still deliberately deferred (full Reports).
+tick-off, and an on-screen reminder every time that nothing here files with SARS or CIPC), and
+the Reports milestone (a fifth bottom-nav tab: profit by month, biggest expense categories this
+month, VAT collected vs paid this month — all computed on demand from data already synced
+locally, never a new stored model or an extra network call). See DISCOVERY.md section 10 for
+what's still deliberately deferred (accountant-ready exports, hardening).
 
 ## Module layout
 
@@ -89,8 +92,8 @@ android/
   classes with no interface to bind against.
 - `ui/` — one package per screen area (`splash`, `businesssetup`, `home`, `leads`,
   `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `suppliers`, `employees`,
-  `compliance`, `money`, `syncstatus`, `settings`), each with a `@HiltViewModel` + a Compose
-  screen, plus
+  `compliance`, `reports`, `money`, `syncstatus`, `settings`), each with a `@HiltViewModel` + a
+  Compose screen, plus
   `ui/navigation/OpsNavGraph.kt` wiring all of them together and `ui/components/` for shared
   pieces (money/date formatting, the sync status chip, the branded quote/invoice letterhead, a
   date picker field, dropdowns). `ui/expenses/ExpenseEditScreen` is one screen for create,
@@ -117,6 +120,16 @@ android/
   for it to actually be created, nothing happens automatically. `ComplianceListScreen`, like
   `EmployeeListScreen`, is reached from Business Profile/Settings; both screens carry the
   on-screen reminder that OPS tracks deadlines but never files anything with SARS or CIPC.
+  `ui/reports/ReportsScreen` is the app's fifth bottom-nav destination — one scrollable screen,
+  no further navigation — showing profit by month (last six calendar months, oldest first),
+  biggest expense categories this month, and VAT collected vs paid this month. Every figure is
+  computed by `ReportsViewModel` directly from data three existing repositories
+  (`PaymentRepository`, `ExpenseRepository`, `InvoiceRepository`) already have synced into Room
+  — no new network call, no new stored entity, mirroring `backend/reports/views.py`'s
+  aggregation logic (same cash-basis revenue definition, same draft/cancelled exclusion for VAT
+  collected) closely enough that the two agree, without needing to be byte-exact the way
+  VAT/net-pay math does — see "What was verified" below for why this stayed out of
+  `core-domain`.
 
 ## Demo script
 
@@ -155,6 +168,11 @@ Then, in the Android app (emulator or device on the same network as the backend)
    open the upcoming PAYE/UIF/SDL one → **Mark done today** → Save → the app offers to add
    next month's reminder; tap **Add** to confirm it (or **Not now** to skip — nothing is ever
    created without that explicit tap).
+8. **Reports** tab (5th bottom-nav icon) → Thabo's actual August figures roll up immediately
+   from the same already-synced local data: profit by month with this month's revenue/expenses/
+   profit, biggest expense categories this month, and VAT collected vs paid (R0.00 collected —
+   Thabo isn't VAT-registered — against whatever VAT was extracted from this month's expenses).
+   No extra sync or network call happens when this tab opens.
 
 `app/build.gradle.kts`'s debug `BASE_URL` is `http://10.0.2.2:8000/` — the Android emulator's
 alias for the host machine's localhost, matching `runserver 0.0.0.0:8000` above. A physical
@@ -211,17 +229,23 @@ JUnit XML result files (`core-domain/build/test-results/test/*.xml`), broken dow
 | `EnumsTest`                     | 12  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value, `PayRateType`'s three values match `Employee.PAY_RATE_TYPE_CHOICES`, and (new this milestone) `ComplianceCategory`'s five values match `ComplianceItem.CATEGORY_CHOICES` |
 
 This is the one hard verification gate for this deliverable, and it's genuinely green — not
-asserted, run. This milestone added one `core-domain` enum (`ComplianceCategory`) and no new
-money-math function — the "add the next reminder" interval suggestion is deliberately *not*
-in core-domain (it isn't a value the server also computes and must match, unlike VAT or net
-pay; it's a pure client-side UX nudge, see `ComplianceEditViewModel.suggestedNextItem`), so it
-lives in the `app` module instead.
+asserted, run. The Compliance milestone added one `core-domain` enum (`ComplianceCategory`) and
+no new money-math function — the "add the next reminder" interval suggestion is deliberately
+*not* in core-domain (it isn't a value the server also computes and must match, unlike VAT or
+net pay; it's a pure client-side UX nudge, see `ComplianceEditViewModel.suggestedNextItem`), so
+it lives in the `app` module instead. **The Reports milestone added zero `core-domain` code** —
+a deliberate decision, not an oversight: `ReportsViewModel`'s only arithmetic is plain
+`BigDecimal` subtraction (`revenue - expenses`, `vatCollected - vatPaid`), which has no
+rounding-mode ambiguity that could cause client/server drift the way VAT extraction or net-pay
+computation do, so there is nothing here that *needs* to byte-match a server computation —
+following the same precedent `HomeViewModel`'s own stat-card arithmetic already set (inline in
+`app`, not routed through `core-domain`). Test count is unchanged at 40/40 as a result.
 
 **Written but NOT compiled or run here — the `app` module:**
 
-Every file under `app/src/main/kotlin` (131 Kotlin files as of the Compliance milestone —
+Every file under `app/src/main/kotlin` (133 Kotlin files as of the Reports milestone —
 Room entities/DAOs, Retrofit service/DTOs, the sync engine, thirteen repositories,
-Hilt modules, and 26 Compose screens with their ViewModels) was written carefully, by hand,
+Hilt modules, and 27 Compose screens with their ViewModels) was written carefully, by hand,
 cross-checking every field name, wire enum value, and endpoint path against `API_CONTRACT.md`
 and the actual Django serializers/models in `../backend/` — but **`app:compileDebugKotlin` was
 never successfully run**, because it cannot succeed here: AGP needs `android.jar` from an
@@ -336,9 +360,33 @@ trap for a future reader and doesn't match this codebase's own convention of nam
 collected list semantically (`employees`, `suppliers`, `expenses`, never the generic `items`).
 Renamed to `complianceItems` throughout the file.
 
+From the Reports milestone: no functional defect found on manual re-read — every field
+`ReportsViewModel` reads off `PaymentEntity`/`ExpenseEntity`/`InvoiceEntity` (`paidDate`,
+`amount`, `date`, `category`, `vatAmount`, `issueDate`, `status`) and every shared component it
+calls (`formatZar`, `labelFor`, `EmptyState`, `SectionHeader`, `EXPENSE_CATEGORY_CHOICES`,
+`InvoiceStatus.DRAFT`/`.CANCELLED`) was cross-checked field-by-field, param-by-param against
+their actual declarations, all matching. One proactive fix, caught while writing rather than as
+a follow-up — the same category of mistake the Suppliers/Employees milestones' `when`-block
+gaps were, just for a different Compose hazard: `ReportsScreen.kt`'s monthly-profit
+`LazyColumn.items(...)` call initially used `key = { it.month }`, a raw `java.time.YearMonth`.
+Compose requires list keys to be Bundle-saveable for state restoration across process death, and
+`YearMonth` is not `Parcelable` — this would risk a runtime crash the moment Android needed to
+restore this screen's scroll/recomposition state, with nothing catching it at compile time.
+Fixed to `key = { it.month.toString() }` before it was ever "finished" code, matching the
+String-keyed convention every other list screen in this app already uses. Also confirmed on
+this pass (backend, not Android, but caught the same way — by re-reading and verifying rather
+than trusting the first draft): `TruncMonth` on a Django `DateField` returns a native
+`datetime.date`, not `datetime.datetime` — an initial `.date()` call on that result would have
+raised `AttributeError` at request time; caught by a live Django shell check before it ever hit
+a test. And the CSV-export query parameter was originally `?format=csv`, which DRF silently
+intercepts for its own content-negotiation and 404s before the view's `get()` runs (no CSV
+renderer is registered) — caught by an actual failing test (`test_csv_export`, `404 != 200`),
+not by inspection; renamed to `?export=csv`, documented in both the view's docstring and
+API_CONTRACT.md so nobody hits the same trap again.
+
 All of the above are exactly the kind of thing a real `compileDebugKotlin` (or a runtime smoke
 test) would catch immediately, which is why this section says "written, not verified" rather
-than "done" — the same class of mistake could plausibly still be sitting somewhere in these 131
+than "done" — the same class of mistake could plausibly still be sitting somewhere in these 133
 files this sandbox couldn't compile. **Confirming the `app` module actually builds and runs
 needs Android Studio or CI with a real Android SDK** — that hasn't happened yet.
 
@@ -405,3 +453,24 @@ needs Android Studio or CI with a real Android SDK** — that hasn't happened ye
   captured/picked — before any network involvement — so it survives being attached fully
   offline; the temp camera-capture file (`cacheDir/receipts_tmp/`, exposed to the Camera app
   via a `FileProvider`) is a separate, disposable intermediate step.
+- **Reports has no stored model of its own and no sync footprint at all.** Every figure is
+  computed on demand — server-side by three `rest_framework.views.APIView`s over existing
+  `Payment`/`Expense`/`Invoice` rows, client-side by `ReportsViewModel` over the same rows
+  already synced into Room — so there is nothing to register in `sync/registry.py`, no new Room
+  entity, and no `SyncStatusItem` subtype. Opening the Reports tab makes zero network calls.
+- **Revenue is cash-basis (payments received), not accrued/invoiced amounts** — the same
+  definition `HomeViewModel.moneyInThisMonth` already uses for its "Money in" stat card, kept
+  identical here on purpose so the app has one financial vocabulary throughout, not two
+  different numbers both plausibly called "revenue." This is explicitly not a general ledger,
+  trial balance, or chart of accounts — see DISCOVERY.md's "Explicitly NOT in V1" list.
+- **No CSV export wired into the Android UI.** The backend's `GET
+  /api/reports/profit-summary/?export=csv` exists and is tested, for a future "email this to my
+  bookkeeper" action, but no button calls it yet — out of scope for a first Reports slice on a
+  phone screen, where the on-screen monthly table already answers the question.
+- **VAT summary is informational only.** The Reports tab shows VAT collected vs paid for the
+  owner's own SARS VAT201 prep with their bookkeeper — same honesty stance as the Compliance
+  milestone's on-screen reminder — OPS does not calculate a filing figure or submit anything.
+- **Reports is the one new module that earned a bottom-nav tab of its own**, unlike Suppliers/
+  Employees/Compliance (each one tap deeper, from Money or Business Profile). Checking "how's
+  the business doing" is a recurring check-in for a real owner, not an occasional administrative
+  task — see DISCOVERY.md section 5 for the full placement rationale.

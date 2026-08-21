@@ -28,6 +28,7 @@ import com.ops.app.ui.money.MoneyScreen
 import com.ops.app.ui.payments.RecordPaymentScreen
 import com.ops.app.ui.quotes.QuoteEditScreen
 import com.ops.app.ui.quotes.QuotePreviewScreen
+import com.ops.app.ui.reports.ReportsScreen
 import com.ops.app.ui.settings.BusinessProfileScreen
 import com.ops.app.ui.splash.SplashScreen
 import com.ops.app.ui.suppliers.SupplierEditScreen
@@ -258,6 +259,10 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
             arguments = listOf(navArgument("expenseId") { type = NavType.StringType }),
         ) {
             ExpenseEditScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(OpsDestinations.REPORTS) {
+            ReportsScreen()
         }
 
         composable(OpsDestinations.SUPPLIERS) {

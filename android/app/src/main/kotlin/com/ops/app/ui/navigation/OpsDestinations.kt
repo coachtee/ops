@@ -21,6 +21,7 @@ object OpsDestinations {
      * navigable route is [CUSTOMERS_PICKABLE] below. */
     const val CUSTOMERS_BASE = "customers"
     const val MONEY = "money"
+    const val REPORTS = "reports"
 
     const val LEAD_NEW = "lead_new"
     const val LEAD_DETAIL = "lead_detail/{leadId}"
