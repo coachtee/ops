@@ -275,6 +275,11 @@ not a redesign.
   setup/billing; a finer permission matrix is deferred until real usage shows it's needed.
 - **Assumption:** one business per install for V1 (an owner running two businesses uses two
   installs or accounts) — multi-business switching is a plausible fast-follow, not V1.
+- **Assumption:** the one-time first-run "let's set up your business" step (which creates the
+  owner's login credentials via `POST /api/auth/register/`) requires connectivity — the
+  offline-first guarantee covers ongoing business data entry once the account exists, not
+  establishing identity for the first time. The screen says so plainly and offers retry; it
+  does not silently queue a registration attempt.
 - **Risk:** last-write-wins sync is the right complexity level for 1–10 people, but will need
   revisiting if OPS grows into the 50–100 person segment mentioned as a "eventually" — flagged
   now so the `sync_state`/conflict fields aren't a dead end.
