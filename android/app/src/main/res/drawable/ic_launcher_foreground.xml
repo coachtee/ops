@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The OPS brand mark: a simple ring ("O"), nothing more elaborate — see
+  docs/DISCOVERY.md's brand guidance against a mascot or a heavy icon. Drawn
+  as one ring path (outer + inner circle, evenOdd fill) so it renders
+  crisply as a vector at any density without a raster asset.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/ops_brand_foreground"
+        android:fillType="evenOdd"
+        android:pathData="
+            M54,24
+            A30,30 0 1,0 54,84
+            A30,30 0 1,0 54,24
+            Z
+            M54,38
+            A16,16 0 1,1 54,70
+            A16,16 0 1,1 54,38
+            Z" />
+</vector>

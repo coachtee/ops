@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- OPS brand mark colors — a simple "O" per docs/DISCOVERY.md's brand
+         guidance, not a mascot or a heavy icon. -->
+    <color name="ops_brand_background">#0B6E4F</color>
+    <color name="ops_brand_foreground">#FFFFFF</color>
+</resources>

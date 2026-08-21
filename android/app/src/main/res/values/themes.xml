@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose (Material 3) owns all real theming — see ui/theme/Theme.kt.
+         This XML theme exists only to set the launch/splash window
+         background so there's no white flash before Compose takes over. -->
+    <style name="Theme.Ops" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/ops_brand_background</item>
+        <item name="android:statusBarColor">@color/ops_brand_background</item>
+    </style>
+</resources>
