@@ -37,10 +37,14 @@ import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.InvoiceLineItemEntity
 import com.ops.app.ui.components.BusinessLetterhead
 import com.ops.app.ui.components.INVOICE_STATUS_CHOICES
+import com.ops.app.ui.components.PAYMENT_METHOD_CHOICES
+import com.ops.app.ui.components.SectionHeader
+import com.ops.app.ui.components.StatusBadge
 import com.ops.app.ui.components.TotalsLine
 import com.ops.app.ui.components.addressLines
 import com.ops.app.ui.components.formatDate
 import com.ops.app.ui.components.formatZar
+import com.ops.app.ui.components.invoiceStatusTone
 import com.ops.app.ui.components.labelFor
 import java.math.BigDecimal
 
@@ -61,7 +65,8 @@ fun InvoicePreviewScreen(
 
 /** Stateless render of [InvoicePreviewScreen] — split out for the
  * screenshot pack (see android/README.md); not called from navigation
- * directly. */
+ * directly. "Record payment" only appears while money is actually owed —
+ * once an invoice is fully paid there's nothing left to record. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvoicePreviewContent(
@@ -98,7 +103,7 @@ fun InvoicePreviewContent(
                         }
                         context.startActivity(Intent.createChooser(sendIntent, "Send invoice"))
                         onMarkSent()
-                    }) { Icon(Icons.Filled.Share, contentDescription = "Send") }
+                    }) { Icon(Icons.Filled.Share, contentDescription = "Share invoice") }
                 },
             )
         },
@@ -119,11 +124,15 @@ fun InvoicePreviewContent(
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Issued ${formatDate(invoice.issueDate)}", style = MaterialTheme.typography.bodyMedium)
                     if (invoice.dueDate != null) Text("Due ${formatDate(invoice.dueDate)}", style = MaterialTheme.typography.bodyMedium)
-                    Text(labelFor(INVOICE_STATUS_CHOICES, invoice.status), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    StatusBadge(
+                        labelFor(INVOICE_STATUS_CHOICES, invoice.status),
+                        invoiceStatusTone(invoice.status),
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             }
 
-            Text("Bill to", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+            SectionHeader("Bill to")
             Text(uiState.customer?.name.orEmpty(), style = MaterialTheme.typography.bodyLarge)
             uiState.customer?.let { c ->
                 if (c.phone.isNotBlank()) Text(c.phone)
@@ -149,31 +158,33 @@ fun InvoicePreviewContent(
             if (invoice.isVatApplicable) TotalsLine("VAT (15%)", formatZar(invoice.vatAmount))
             TotalsLine("Total", formatZar(invoice.total), emphasise = true)
             TotalsLine("Paid", formatZar(invoice.amountPaid))
-            TotalsLine("Outstanding", formatZar(outstanding), emphasise = true)
+            TotalsLine("Outstanding", formatZar(outstanding), emphasise = outstanding.signum() > 0)
 
             if (uiState.payments.isNotEmpty()) {
-                Text("Payments", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+                SectionHeader("Payments")
                 uiState.payments.forEach { payment ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("${formatDate(payment.paidDate)} · ${payment.method}")
+                        Text("${formatDate(payment.paidDate)} · ${labelFor(PAYMENT_METHOD_CHOICES, payment.method)}")
                         Text(formatZar(payment.amount))
                     }
                 }
             }
 
             if (invoice.notes.isNotBlank()) {
-                Text("Notes", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+                SectionHeader("Notes")
                 Text(invoice.notes)
             }
             if (invoice.terms.isNotBlank()) {
-                Text("Terms", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+                SectionHeader("Terms")
                 Text(invoice.terms)
             }
 
-            Button(
-                onClick = { onRecordPayment(invoice.customerId, invoice.id) },
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-            ) { Text("Record payment") }
+            if (outstanding.signum() > 0) {
+                Button(
+                    onClick = { onRecordPayment(invoice.customerId, invoice.id) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                ) { Text("Record payment") }
+            }
         }
     }
 }

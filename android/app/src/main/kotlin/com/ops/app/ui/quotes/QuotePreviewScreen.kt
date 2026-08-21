@@ -36,11 +36,15 @@ import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.ui.components.BusinessLetterhead
 import com.ops.app.ui.components.QUOTE_STATUS_CHOICES
+import com.ops.app.ui.components.SectionHeader
+import com.ops.app.ui.components.StatusBadge
 import com.ops.app.ui.components.TotalsLine
 import com.ops.app.ui.components.addressLines
 import com.ops.app.ui.components.formatDate
 import com.ops.app.ui.components.formatZar
 import com.ops.app.ui.components.labelFor
+import com.ops.app.ui.components.quoteStatusTone
+import com.ops.coredomain.QuoteStatus
 
 @Composable
 fun QuotePreviewScreen(
@@ -59,7 +63,13 @@ fun QuotePreviewScreen(
 }
 
 /** Stateless render of [QuotePreviewScreen] — split out for the screenshot
- * pack (see android/README.md); not called from navigation directly. */
+ * pack (see android/README.md); not called from navigation directly.
+ *
+ * The bottom action row is contextual to [quote]'s status, same as the
+ * status badge in the header: a draft only offers "Send quote"; once sent,
+ * the only two things left to record are the customer's Accepted/Declined
+ * answer; once decided, there is nothing left to do here — the record
+ * speaks for itself. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuotePreviewContent(
@@ -72,22 +82,24 @@ fun QuotePreviewContent(
     val context = LocalContext.current
     val quote = uiState.quote
 
+    fun shareQuote() {
+        val text = buildShareText(uiState.business, uiState.customer, quote, uiState.lineItems)
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Quote ${quote?.number.orEmpty()}")
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(Intent.createChooser(sendIntent, "Send quote"))
+        onMarkSent()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(quote?.number ?: "Draft quote") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") } },
                 actions = {
-                    IconButton(onClick = {
-                        val text = buildShareText(uiState.business, uiState.customer, quote, uiState.lineItems)
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "Quote ${quote?.number.orEmpty()}")
-                            putExtra(Intent.EXTRA_TEXT, text)
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "Send quote"))
-                        onMarkSent()
-                    }) { Icon(Icons.Filled.Share, contentDescription = "Send") }
+                    IconButton(onClick = { shareQuote() }) { Icon(Icons.Filled.Share, contentDescription = "Share quote") }
                 },
             )
         },
@@ -107,11 +119,15 @@ fun QuotePreviewContent(
                 Column(horizontalAlignment = Alignment.End) {
                     Text("Issued ${formatDate(quote.issueDate)}", style = MaterialTheme.typography.bodyMedium)
                     if (quote.validUntil != null) Text("Valid until ${formatDate(quote.validUntil)}", style = MaterialTheme.typography.bodyMedium)
-                    Text(labelFor(QUOTE_STATUS_CHOICES, quote.status), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    StatusBadge(
+                        labelFor(QUOTE_STATUS_CHOICES, quote.status),
+                        quoteStatusTone(quote.status),
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
             }
 
-            Text("Bill to", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+            SectionHeader("Bill to")
             Text(uiState.customer?.name.orEmpty(), style = MaterialTheme.typography.bodyLarge)
             uiState.customer?.let { c ->
                 if (c.phone.isNotBlank()) Text(c.phone)
@@ -138,17 +154,28 @@ fun QuotePreviewContent(
             TotalsLine("Total", formatZar(quote.total), emphasise = true)
 
             if (quote.notes.isNotBlank()) {
-                Text("Notes", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 16.dp))
+                SectionHeader("Notes")
                 Text(quote.notes)
             }
             if (quote.terms.isNotBlank()) {
-                Text("Terms", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+                SectionHeader("Terms")
                 Text(quote.terms)
             }
 
-            Row(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onMarkDeclined, modifier = Modifier.weight(1f)) { Text("Declined") }
-                Button(onClick = onMarkAccepted, modifier = Modifier.weight(1f)) { Text("Accepted") }
+            when (quote.status) {
+                QuoteStatus.DRAFT.wire -> {
+                    Button(onClick = { shareQuote() }, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
+                        Icon(Icons.Filled.Share, contentDescription = null)
+                        Text(" Send quote", modifier = Modifier.padding(start = 4.dp))
+                    }
+                }
+                QuoteStatus.SENT.wire -> {
+                    Row(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onMarkDeclined, modifier = Modifier.weight(1f)) { Text("Declined") }
+                        Button(onClick = onMarkAccepted, modifier = Modifier.weight(1f)) { Text("Accepted") }
+                    }
+                }
+                else -> Unit
             }
         }
     }

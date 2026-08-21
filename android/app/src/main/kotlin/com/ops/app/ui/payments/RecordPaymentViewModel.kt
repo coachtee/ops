@@ -23,6 +23,8 @@ data class RecordPaymentUiState(
     val invoiceId: String? = null,
     val customerName: String = "",
     val invoiceNumber: String? = null,
+    val invoiceTotal: BigDecimal? = null,
+    val alreadyPaid: BigDecimal? = null,
     val outstandingOnInvoice: BigDecimal? = null,
     val amount: String = "",
     val method: String = PaymentMethod.EFT.wire,
@@ -32,6 +34,16 @@ data class RecordPaymentUiState(
     val isSaving: Boolean = false,
 ) {
     val canSave: Boolean get() = runCatching { BigDecimal(amount) }.getOrNull()?.let { it.signum() > 0 } == true
+
+    private val amountAsBigDecimal: BigDecimal
+        get() = runCatching { BigDecimal(amount) }.getOrDefault(BigDecimal.ZERO)
+
+    /** Recomputed on every keystroke — this is a plain getter over
+     * [outstandingOnInvoice] and [amount], not a value cached at load, so
+     * the "Remaining" figure the user sees always reflects what they just
+     * typed, with no extra wiring needed. */
+    val remainingAfterThisPayment: BigDecimal?
+        get() = outstandingOnInvoice?.subtract(amountAsBigDecimal)
 }
 
 @HiltViewModel
@@ -52,13 +64,15 @@ class RecordPaymentViewModel @Inject constructor(
         viewModelScope.launch {
             val customer = customerRepository.getById(customerId)
             val invoice = routeInvoiceId?.let { invoiceRepository.getById(it) }
-            val outstanding = invoice?.let {
-                runCatching { BigDecimal(it.total).subtract(BigDecimal(it.amountPaid)) }.getOrNull()
-            }
+            val total = invoice?.let { runCatching { BigDecimal(it.total) }.getOrNull() }
+            val alreadyPaid = invoice?.let { runCatching { BigDecimal(it.amountPaid) }.getOrNull() }
+            val outstanding = if (total != null && alreadyPaid != null) total.subtract(alreadyPaid) else null
             _uiState.update {
                 it.copy(
                     customerName = customer?.name.orEmpty(),
                     invoiceNumber = invoice?.number,
+                    invoiceTotal = total,
+                    alreadyPaid = alreadyPaid,
                     outstandingOnInvoice = outstanding,
                     amount = outstanding?.toPlainString() ?: it.amount,
                 )

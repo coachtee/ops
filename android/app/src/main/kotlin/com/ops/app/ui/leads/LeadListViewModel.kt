@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -44,5 +45,9 @@ class LeadListViewModel @Inject constructor(
 
     fun setFilter(value: LeadListFilter) {
         filter.value = value
+    }
+
+    fun setFollowUpDate(leadId: String, date: String) {
+        viewModelScope.launch { leadRepository.updateFollowUpDate(leadId, date) }
     }
 }

@@ -2,6 +2,7 @@ package com.ops.app.ui.payments
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,9 +30,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ops.app.ui.components.DateField
 import com.ops.app.ui.components.LabeledDropdown
 import com.ops.app.ui.components.PAYMENT_METHOD_CHOICES
+import com.ops.app.ui.components.StatCard
 import com.ops.app.ui.components.formatZar
+import java.math.BigDecimal
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordPaymentScreen(
     onBack: () -> Unit,
@@ -39,7 +41,29 @@ fun RecordPaymentScreen(
     viewModel: RecordPaymentViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    RecordPaymentContent(
+        uiState = uiState,
+        onBack = onBack,
+        onUpdate = viewModel::update,
+        onSave = { viewModel.save(onSaved) },
+    )
+}
 
+/** Stateless render of [RecordPaymentScreen] — split out for the
+ * screenshot pack (see android/README.md); not called from navigation
+ * directly. The simplest form in the app on purpose: when an invoice is
+ * known, "Invoice total / Already paid / Remaining" is always on screen
+ * above the amount field, and Remaining recomputes on every keystroke
+ * (see [RecordPaymentUiState.remainingAfterThisPayment]) — the user should
+ * never have to do the subtraction themselves. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecordPaymentContent(
+    uiState: RecordPaymentUiState,
+    onBack: () -> Unit,
+    onUpdate: ((RecordPaymentUiState) -> RecordPaymentUiState) -> Unit,
+    onSave: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -52,43 +76,51 @@ fun RecordPaymentScreen(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("From: ${uiState.customerName}", style = MaterialTheme.typography.titleMedium)
+            Text("From", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(uiState.customerName, style = MaterialTheme.typography.titleMedium)
+
             if (uiState.invoiceNumber != null) {
                 Text("Against invoice ${uiState.invoiceNumber}", style = MaterialTheme.typography.bodyMedium)
             } else if (uiState.invoiceId == null) {
                 Text("On account (not tied to a specific invoice)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            uiState.outstandingOnInvoice?.let {
-                Text("Outstanding: ${formatZar(it)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            if (uiState.invoiceTotal != null && uiState.alreadyPaid != null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StatCard("Invoice total", formatZar(uiState.invoiceTotal), Modifier.weight(1f))
+                    StatCard("Already paid", formatZar(uiState.alreadyPaid), Modifier.weight(1f))
+                    val remaining = uiState.remainingAfterThisPayment ?: uiState.outstandingOnInvoice ?: BigDecimal.ZERO
+                    StatCard("Remaining", formatZar(remaining), Modifier.weight(1f), emphasise = remaining.signum() > 0)
+                }
             }
 
             OutlinedTextField(
                 value = uiState.amount,
-                onValueChange = { viewModel.update { s -> s.copy(amount = it) } },
+                onValueChange = { onUpdate { s -> s.copy(amount = it) } },
                 label = { Text("Amount (R)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
-            LabeledDropdown("Method", PAYMENT_METHOD_CHOICES, uiState.method, { viewModel.update { s -> s.copy(method = it) } })
+            LabeledDropdown("Method", PAYMENT_METHOD_CHOICES, uiState.method, { onUpdate { s -> s.copy(method = it) } })
             OutlinedTextField(
                 value = uiState.reference,
-                onValueChange = { viewModel.update { s -> s.copy(reference = it) } },
+                onValueChange = { onUpdate { s -> s.copy(reference = it) } },
                 label = { Text("Reference (optional)") },
                 modifier = Modifier.fillMaxWidth(),
             )
-            DateField("Date paid", uiState.paidDate, { if (it != null) viewModel.update { s -> s.copy(paidDate = it) } }, clearable = false)
+            DateField("Date paid", uiState.paidDate, { if (it != null) onUpdate { s -> s.copy(paidDate = it) } }, clearable = false)
             OutlinedTextField(
                 value = uiState.notes,
-                onValueChange = { viewModel.update { s -> s.copy(notes = it) } },
+                onValueChange = { onUpdate { s -> s.copy(notes = it) } },
                 label = { Text("Notes (optional)") },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Button(
-                onClick = { viewModel.save(onSaved) },
+                onClick = onSave,
                 enabled = uiState.canSave && !uiState.isSaving,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
             ) { Text("Record payment") }
         }
     }

@@ -34,9 +34,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ops.app.ui.components.DateField
 import com.ops.app.ui.components.SectionHeader
+import com.ops.app.ui.components.TotalsLine
 import com.ops.app.ui.components.formatZar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvoiceEditScreen(
     onBack: () -> Unit,
@@ -44,7 +44,33 @@ fun InvoiceEditScreen(
     viewModel: InvoiceEditViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    InvoiceEditContent(
+        uiState = uiState,
+        onBack = onBack,
+        onUpdate = viewModel::update,
+        onUpdateLineItem = viewModel::updateLineItem,
+        onAddLineItem = viewModel::addLineItem,
+        onRemoveLineItem = viewModel::removeLineItem,
+        onSave = { viewModel.save(onSaved) },
+    )
+}
 
+/** Stateless render of [InvoiceEditScreen] — split out for the screenshot
+ * pack (see android/README.md); not called from navigation directly.
+ * Same fast-entry shape as [com.ops.app.ui.quotes.QuoteEditContent] —
+ * line items pre-filled from the source quote when this invoice came from
+ * one, a running total, one save action. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InvoiceEditContent(
+    uiState: InvoiceEditUiState,
+    onBack: () -> Unit,
+    onUpdate: ((InvoiceEditUiState) -> InvoiceEditUiState) -> Unit,
+    onUpdateLineItem: (String, (InvoiceLineItemRow) -> InvoiceLineItemRow) -> Unit,
+    onAddLineItem: () -> Unit,
+    onRemoveLineItem: (String) -> Unit,
+    onSave: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -57,11 +83,18 @@ fun InvoiceEditScreen(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("For: ${uiState.customerName}", style = MaterialTheme.typography.titleMedium)
+            Text("Customer", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(uiState.customerName, style = MaterialTheme.typography.titleMedium)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DateField("Issue date", uiState.issueDate, { if (it != null) viewModel.update { s -> s.copy(issueDate = it) } }, modifier = Modifier.weight(1f), clearable = false)
-                DateField("Due date", uiState.dueDate, { viewModel.update { s -> s.copy(dueDate = it) } }, modifier = Modifier.weight(1f))
+                DateField(
+                    "Issue date",
+                    uiState.issueDate,
+                    { if (it != null) onUpdate { s -> s.copy(issueDate = it) } },
+                    modifier = Modifier.weight(1f),
+                    clearable = false,
+                )
+                DateField("Due date", uiState.dueDate, { onUpdate { s -> s.copy(dueDate = it) } }, modifier = Modifier.weight(1f))
             }
 
             SectionHeader("Line items")
@@ -69,68 +102,60 @@ fun InvoiceEditScreen(
                 Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                     OutlinedTextField(
                         value = row.description,
-                        onValueChange = { viewModel.updateLineItem(row.rowKey) { r -> r.copy(description = it) } },
+                        onValueChange = { onUpdateLineItem(row.rowKey) { r -> r.copy(description = it) } },
                         label = { Text("Description") },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = row.quantity,
-                            onValueChange = { viewModel.updateLineItem(row.rowKey) { r -> r.copy(quantity = it) } },
+                            onValueChange = { onUpdateLineItem(row.rowKey) { r -> r.copy(quantity = it) } },
                             label = { Text("Qty") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.weight(1f),
                         )
                         OutlinedTextField(
                             value = row.unitPrice,
-                            onValueChange = { viewModel.updateLineItem(row.rowKey) { r -> r.copy(unitPrice = it) } },
+                            onValueChange = { onUpdateLineItem(row.rowKey) { r -> r.copy(unitPrice = it) } },
                             label = { Text("Unit price (R)") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.weight(1f),
                         )
-                        IconButton(onClick = { viewModel.removeLineItem(row.rowKey) }) {
+                        IconButton(onClick = { onRemoveLineItem(row.rowKey) }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Remove line")
                         }
                     }
                 }
             }
-            OutlinedButton(onClick = viewModel::addLineItem, modifier = Modifier.fillMaxWidth()) { Text("+ Add line item") }
+            OutlinedButton(onClick = onAddLineItem, modifier = Modifier.fillMaxWidth()) { Text("+ Add line item") }
 
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = uiState.isVatApplicable, onCheckedChange = { viewModel.update { s -> s.copy(isVatApplicable = it) } })
+                Checkbox(checked = uiState.isVatApplicable, onCheckedChange = { onUpdate { s -> s.copy(isVatApplicable = it) } })
                 Text("VAT applicable (15%)")
             }
             OutlinedTextField(
                 value = uiState.discountAmount,
-                onValueChange = { viewModel.update { s -> s.copy(discountAmount = it) } },
+                onValueChange = { onUpdate { s -> s.copy(discountAmount = it) } },
                 label = { Text("Discount (R)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
 
             val totals = uiState.totals
-            TotalsRow("Subtotal", formatZar(totals.subtotal))
-            TotalsRow("VAT", formatZar(totals.vatAmount))
-            TotalsRow("Total", formatZar(totals.total), emphasise = true)
+            TotalsLine("Subtotal", formatZar(totals.subtotal))
+            TotalsLine("VAT", formatZar(totals.vatAmount))
+            TotalsLine("Total", formatZar(totals.total), emphasise = true)
 
-            OutlinedTextField(uiState.notes, { viewModel.update { s -> s.copy(notes = it) } }, label = { Text("Notes (optional)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(uiState.terms, { viewModel.update { s -> s.copy(terms = it) } }, label = { Text("Terms (optional)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(uiState.notes, { onUpdate { s -> s.copy(notes = it) } }, label = { Text("Notes (optional)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(uiState.terms, { onUpdate { s -> s.copy(terms = it) } }, label = { Text("Terms (optional)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
 
             Button(
-                onClick = { viewModel.save(onSaved) },
+                onClick = onSave,
                 enabled = !uiState.isSaving,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
             ) { Text("Save invoice") }
         }
-    }
-}
-
-@Composable
-private fun TotalsRow(label: String, value: String, emphasise: Boolean = false) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = if (emphasise) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium)
-        Text(value, style = if (emphasise) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium)
     }
 }

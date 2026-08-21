@@ -197,6 +197,8 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
         ) {
             JobDetailScreen(
                 onBack = { navController.popBackStack() },
+                onOpenCustomer = { navController.navigate(OpsDestinations.customerDetail(it)) },
+                onOpenQuote = { navController.navigate(OpsDestinations.quotePreview(it)) },
                 onOpenInvoice = { navController.navigate(OpsDestinations.invoicePreview(it)) },
                 onCreateInvoice = { customerId, jobId, quoteId ->
                     navController.navigate(OpsDestinations.invoiceEditNew(customerId, jobId, quoteId))

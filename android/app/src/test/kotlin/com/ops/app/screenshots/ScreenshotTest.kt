@@ -32,14 +32,24 @@ import com.ops.app.ui.expenses.ExpenseEditContent
 import com.ops.app.ui.expenses.ExpenseEditUiState
 import com.ops.app.ui.home.HomeContent
 import com.ops.app.ui.home.HomeUiState
+import com.ops.app.ui.invoices.InvoiceEditContent
+import com.ops.app.ui.invoices.InvoiceEditUiState
+import com.ops.app.ui.invoices.InvoiceLineItemRow
 import com.ops.app.ui.invoices.InvoicePreviewContent
 import com.ops.app.ui.invoices.InvoicePreviewUiState
+import com.ops.app.ui.jobs.JobDetailContent
+import com.ops.app.ui.jobs.JobDetailUiState
 import com.ops.app.ui.leads.LeadDetailContent
 import com.ops.app.ui.leads.LeadListFilter
 import com.ops.app.ui.leads.LeadListScreenContent
 import com.ops.app.ui.leads.LeadListUiState
 import com.ops.app.ui.money.MoneyContent
 import com.ops.app.ui.money.MoneyUiState
+import com.ops.app.ui.payments.RecordPaymentContent
+import com.ops.app.ui.payments.RecordPaymentUiState
+import com.ops.app.ui.quotes.QuoteEditContent
+import com.ops.app.ui.quotes.QuoteEditUiState
+import com.ops.app.ui.quotes.QuoteLineItemRow
 import com.ops.app.ui.quotes.QuotePreviewContent
 import com.ops.app.ui.quotes.QuotePreviewUiState
 import com.ops.app.ui.reports.ExpenseCategoryRow
@@ -513,6 +523,133 @@ class ScreenshotTest {
                     business = business, isSaving = false, errorMessage = null, pendingLogoBytes = null,
                     onBack = {}, onOpenEmployees = {}, onOpenCompliance = {}, onPickLogo = {},
                     onSave = {}, onLogout = {},
+                )
+            }
+        }
+    }
+
+    // ---- Phase 2: the LEAD -> CUSTOMER -> QUOTE -> JOB -> INVOICE -> PAYMENT
+    // commercial flow's fast-entry screens, which weren't split into a
+    // stateless Content composable before this pass (see android/README.md).
+
+    @Test
+    fun `17 quote edit`() {
+        paparazzi.snapshot(name = "17-quote-edit") {
+            OpsTheme {
+                QuoteEditContent(
+                    uiState = QuoteEditUiState(
+                        quoteId = null,
+                        customerId = customer.id,
+                        customerName = customer.name,
+                        issueDate = "2026-08-21",
+                        validUntil = "2026-09-04",
+                        isVatApplicable = false,
+                        discountAmount = "0.00",
+                        lineItems = listOf(
+                            QuoteLineItemRow(description = "150L geyser, supply and install", quantity = "1", unitPrice = "3800.00"),
+                            QuoteLineItemRow(description = "Call-out and labour", quantity = "1", unitPrice = "700.00"),
+                        ),
+                        notes = "Includes removal and disposal of the old geyser.",
+                        terms = "50% deposit on acceptance, balance on completion.",
+                    ),
+                    onBack = {}, onUpdate = {}, onUpdateLineItem = { _, _ -> }, onAddLineItem = {},
+                    onRemoveLineItem = {}, onSave = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `18 job detail`() {
+        paparazzi.snapshot(name = "18-job-detail") {
+            OpsTheme {
+                JobDetailContent(
+                    uiState = JobDetailUiState(
+                        job = job, customer = customer, quote = quote,
+                        invoices = listOf(invoice), payments = listOf(payment), expenses = listOf(expense),
+                    ),
+                    onBack = {}, onOpenCustomer = {}, onOpenQuote = {}, onOpenInvoice = {},
+                    onCreateInvoice = { _, _, _ -> }, onUpdateStatus = {}, onUpdateDates = { _, _ -> },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `19 invoice edit`() {
+        paparazzi.snapshot(name = "19-invoice-edit") {
+            OpsTheme {
+                InvoiceEditContent(
+                    uiState = InvoiceEditUiState(
+                        invoiceId = null,
+                        customerId = customer.id,
+                        jobId = job.id,
+                        quoteId = quote.id,
+                        customerName = customer.name,
+                        issueDate = "2026-08-21",
+                        dueDate = "2026-09-04",
+                        isVatApplicable = false,
+                        discountAmount = "0.00",
+                        lineItems = listOf(
+                            InvoiceLineItemRow(description = "150L geyser, supply and install", quantity = "1", unitPrice = "3800.00"),
+                            InvoiceLineItemRow(description = "Call-out and labour", quantity = "1", unitPrice = "700.00"),
+                        ),
+                        terms = "Payment due within 14 days.",
+                    ),
+                    onBack = {}, onUpdate = {}, onUpdateLineItem = { _, _ -> }, onAddLineItem = {},
+                    onRemoveLineItem = {}, onSave = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `20 record payment`() {
+        paparazzi.snapshot(name = "20-record-payment") {
+            OpsTheme {
+                RecordPaymentContent(
+                    uiState = RecordPaymentUiState(
+                        customerId = customer.id,
+                        invoiceId = invoice.id,
+                        customerName = customer.name,
+                        invoiceNumber = invoice.number,
+                        invoiceTotal = BigDecimal(invoice.total),
+                        alreadyPaid = BigDecimal(invoice.amountPaid),
+                        outstandingOnInvoice = BigDecimal("2250.00"),
+                        amount = "2250.00",
+                        method = PaymentMethod.EFT.wire,
+                        paidDate = "2026-08-21",
+                    ),
+                    onBack = {}, onUpdate = {}, onSave = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `21 leads empty state`() {
+        paparazzi.snapshot(name = "21-leads-empty-state") {
+            OpsTheme {
+                LeadListScreenContent(
+                    uiState = LeadListUiState(filter = LeadListFilter.NEEDS_FOLLOW_UP, leads = emptyList()),
+                    onFilterChange = {}, onOpenLead = {}, onNewLead = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `22 customer empty state`() {
+        paparazzi.snapshot(name = "22-customer-empty-state") {
+            OpsTheme {
+                CustomerDetailContent(
+                    uiState = CustomerDetailUiState(
+                        customer = customer.copy(id = "cust-2", name = "New customer, no history yet"),
+                        quotes = emptyList(), jobs = emptyList(), invoices = emptyList(),
+                        outstandingTotal = BigDecimal.ZERO,
+                    ),
+                    onBack = {}, onOpenQuote = {}, onOpenJob = {}, onOpenInvoice = {},
+                    onNewQuote = {}, onNewInvoice = {}, onRecordPayment = {}, onUpdateNotes = {},
                 )
             }
         }
