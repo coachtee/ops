@@ -1,0 +1,66 @@
+name: Publish debug APK as a GitHub Release
+
+# Distribution only — never rebuilds the app. Downloads the exact
+# app-debug.apk artifact from a specific prior successful
+# android-apk.yml run (scoped by run ID, so it is provably the same file,
+# not a fresh build) and republishes it as a direct-download Release
+# asset. GitHub Actions artifacts require a signed-in browser session and
+# always download as a zip; Release assets download directly with no
+# sign-in and no zip wrapper — this exists for that reason alone.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Workflow run ID of the android-apk.yml run to pull app-debug.apk from"
+        required: true
+        default: "32528219374"
+      release_tag:
+        description: "Git tag to create for this release"
+        required: true
+        default: "apk-38ec757"
+      target_commit:
+        description: "Commit SHA the release tag should point at"
+        required: true
+        default: "38ec757f0727fa024f8c4973f5bc8f8bce96edf4"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-apk-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.target_commit }}
+
+      - name: Download the exact APK artifact from the source run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ github.event.inputs.source_run_id }}" \
+            --repo "${{ github.repository }}" \
+            -n ops-app-debug-apk \
+            --dir ./release-apk
+
+      - name: Verify what was downloaded (size + hash — the audit trail)
+        run: |
+          ls -la ./release-apk/
+          test -f ./release-apk/app-debug.apk
+          echo "Byte size:"
+          stat -c%s ./release-apk/app-debug.apk
+          echo "SHA256:"
+          sha256sum ./release-apk/app-debug.apk
+
+      - name: Create the Release and attach the raw APK (not a zip)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.event.inputs.release_tag }}" \
+            ./release-apk/app-debug.apk \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.event.inputs.target_commit }}" \
+            --title "OPS Android debug APK (${{ github.event.inputs.target_commit }})" \
+            --notes "Debug APK built by \`:app:assembleDebug\` in workflow run ${{ github.event.inputs.source_run_id }} (https://github.com/${{ github.repository }}/actions/runs/${{ github.event.inputs.source_run_id }}) from commit ${{ github.event.inputs.target_commit }}. This release republishes that exact, already-verified file as a direct-download asset — no sign-in, no zip wrapper, and nothing was rebuilt to produce it. See the 'Verify what was downloaded' step's log in this run for its size and SHA256."
