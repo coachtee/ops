@@ -5,6 +5,11 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    // Renders the real production screen Composables (via the XScreenContent
+    // functions each screen exposes) with hand-built fake state, on the JVM,
+    // no emulator/SDK needed — this is how the visual screenshot pack is
+    // produced; see android/README.md and app/src/test/kotlin/.../screenshots/.
+    alias(libs.plugins.paparazzi)
 }
 
 android {

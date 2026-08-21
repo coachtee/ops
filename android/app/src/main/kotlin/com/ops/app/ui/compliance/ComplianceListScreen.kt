@@ -37,7 +37,19 @@ fun ComplianceListScreen(
     viewModel: ComplianceListViewModel = hiltViewModel(),
 ) {
     val complianceItems by viewModel.items.collectAsStateWithLifecycle()
+    ComplianceListContent(complianceItems = complianceItems, onBack = onBack, onOpenItem = onOpenItem, onNewItem = onNewItem)
+}
 
+/** Stateless render of [ComplianceListScreen] — split out for the
+ * screenshot pack (see android/README.md); not called from navigation
+ * directly. */
+@Composable
+fun ComplianceListContent(
+    complianceItems: List<com.ops.app.data.local.entities.ComplianceItemEntity>,
+    onBack: () -> Unit,
+    onOpenItem: (String) -> Unit,
+    onNewItem: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(

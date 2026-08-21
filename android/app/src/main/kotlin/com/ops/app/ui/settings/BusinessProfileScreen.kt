@@ -85,20 +85,8 @@ fun BusinessProfileScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var form by remember(business?.id) {
-        mutableStateOf(
-            business?.let {
-                EditableBusiness(
-                    it.name, it.tradingName, it.registrationNumber, it.taxNumber, it.vatNumber,
-                    it.isVatRegistered, it.industry, it.phone, it.email, it.addressLine1, it.addressLine2,
-                    it.suburb, it.city, it.province, it.postalCode,
-                )
-            } ?: EditableBusiness(),
-        )
-    }
     var pendingLogoBytes by remember { mutableStateOf<ByteArray?>(null) }
     var pendingLogoMime by remember { mutableStateOf<String?>(null) }
-    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -110,6 +98,51 @@ fun BusinessProfileScreen(
             pendingLogoMime = context.contentResolver.getType(uri) ?: "image/jpeg"
         }
     }
+
+    BusinessProfileContent(
+        business = business,
+        isSaving = isSaving,
+        errorMessage = errorMessage,
+        pendingLogoBytes = pendingLogoBytes,
+        onBack = onBack,
+        onOpenEmployees = onOpenEmployees,
+        onOpenCompliance = onOpenCompliance,
+        onPickLogo = { logoPicker.launch("image/*") },
+        onSave = { fields -> viewModel.save(fields, pendingLogoBytes, pendingLogoMime) { pendingLogoBytes = null } },
+        onLogout = { viewModel.logout(onLoggedOut) },
+    )
+}
+
+/** Stateless render of [BusinessProfileScreen] — split out for the
+ * screenshot pack (see android/README.md); not called from navigation
+ * directly. The logo picker stays a plain callback since the actual
+ * activity-result launcher needs to stay registered in
+ * [BusinessProfileScreen] itself. */
+@Composable
+fun BusinessProfileContent(
+    business: com.ops.app.data.local.entities.BusinessEntity?,
+    isSaving: Boolean,
+    errorMessage: String?,
+    pendingLogoBytes: ByteArray?,
+    onBack: () -> Unit,
+    onOpenEmployees: () -> Unit,
+    onOpenCompliance: () -> Unit,
+    onPickLogo: () -> Unit,
+    onSave: (BusinessPatchDto) -> Unit,
+    onLogout: () -> Unit,
+) {
+    var form by remember(business?.id) {
+        mutableStateOf(
+            business?.let {
+                EditableBusiness(
+                    it.name, it.tradingName, it.registrationNumber, it.taxNumber, it.vatNumber,
+                    it.isVatRegistered, it.industry, it.phone, it.email, it.addressLine1, it.addressLine2,
+                    it.suburb, it.city, it.province, it.postalCode,
+                )
+            } ?: EditableBusiness(),
+        )
+    }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -143,7 +176,7 @@ fun BusinessProfileScreen(
                     business?.logoUrl != null -> AsyncImage(model = business.logoUrl, contentDescription = "Logo", modifier = Modifier.size(56.dp))
                     else -> LogoPlaceholder(form.name)
                 }
-                TextButton(onClick = { logoPicker.launch("image/*") }, modifier = Modifier.padding(start = 12.dp)) {
+                TextButton(onClick = onPickLogo, modifier = Modifier.padding(start = 12.dp)) {
                     Text("Change logo")
                 }
             }
@@ -187,17 +220,14 @@ fun BusinessProfileScreen(
 
             Button(
                 onClick = {
-                    viewModel.save(
-                        fields = BusinessPatchDto(
+                    onSave(
+                        BusinessPatchDto(
                             name = form.name, tradingName = form.tradingName, registrationNumber = form.registrationNumber,
                             taxNumber = form.taxNumber, vatNumber = form.vatNumber, isVatRegistered = form.isVatRegistered,
                             industry = form.industry, phone = form.phone, email = form.email, addressLine1 = form.addressLine1,
                             addressLine2 = form.addressLine2, suburb = form.suburb, city = form.city, province = form.province,
                             postalCode = form.postalCode,
                         ),
-                        logoBytes = pendingLogoBytes,
-                        logoMimeType = pendingLogoMime,
-                        onDone = { pendingLogoBytes = null },
                     )
                 },
                 enabled = !isSaving,
@@ -227,7 +257,7 @@ fun BusinessProfileScreen(
             title = { Text("Log out?") },
             text = { Text("This clears everything saved on this phone. Anything already synced stays safe on the server.") },
             confirmButton = {
-                TextButton(onClick = { showLogoutConfirm = false; viewModel.logout(onLoggedOut) }) { Text("Log out") }
+                TextButton(onClick = { showLogoutConfirm = false; onLogout() }) { Text("Log out") }
             },
             dismissButton = { TextButton(onClick = { showLogoutConfirm = false }) { Text("Cancel") } },
         )

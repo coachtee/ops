@@ -49,6 +49,24 @@ fun InvoicePreviewScreen(
     viewModel: InvoicePreviewViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    InvoicePreviewContent(
+        uiState = uiState,
+        onBack = onBack,
+        onRecordPayment = onRecordPayment,
+        onMarkSent = viewModel::markSent,
+    )
+}
+
+/** Stateless render of [InvoicePreviewScreen] — split out for the
+ * screenshot pack (see android/README.md); not called from navigation
+ * directly. */
+@Composable
+fun InvoicePreviewContent(
+    uiState: InvoicePreviewUiState,
+    onBack: () -> Unit,
+    onRecordPayment: (customerId: String, invoiceId: String) -> Unit,
+    onMarkSent: () -> Unit,
+) {
     val context = LocalContext.current
     val invoice = uiState.invoice
 
@@ -76,7 +94,7 @@ fun InvoicePreviewScreen(
                             putExtra(Intent.EXTRA_TEXT, text)
                         }
                         context.startActivity(Intent.createChooser(sendIntent, "Send invoice"))
-                        viewModel.markSent()
+                        onMarkSent()
                     }) { Icon(Icons.Filled.Share, contentDescription = "Send") }
                 },
             )

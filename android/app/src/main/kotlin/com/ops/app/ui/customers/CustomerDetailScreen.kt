@@ -49,6 +49,34 @@ fun CustomerDetailScreen(
     viewModel: CustomerDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    CustomerDetailContent(
+        uiState = uiState,
+        onBack = onBack,
+        onOpenQuote = onOpenQuote,
+        onOpenJob = onOpenJob,
+        onOpenInvoice = onOpenInvoice,
+        onNewQuote = onNewQuote,
+        onNewInvoice = onNewInvoice,
+        onRecordPayment = onRecordPayment,
+        onUpdateNotes = viewModel::updateNotes,
+    )
+}
+
+/** Stateless render of [CustomerDetailScreen] — split out for the
+ * screenshot pack (see android/README.md); not called from navigation
+ * directly. */
+@Composable
+fun CustomerDetailContent(
+    uiState: CustomerDetailUiState,
+    onBack: () -> Unit,
+    onOpenQuote: (String) -> Unit,
+    onOpenJob: (String) -> Unit,
+    onOpenInvoice: (String) -> Unit,
+    onNewQuote: (customerId: String) -> Unit,
+    onNewInvoice: (customerId: String) -> Unit,
+    onRecordPayment: (customerId: String) -> Unit,
+    onUpdateNotes: (String) -> Unit,
+) {
     val customer = uiState.customer
     var noteDraft by remember(customer?.id) { mutableStateOf(customer?.notes.orEmpty()) }
 
@@ -131,7 +159,7 @@ fun CustomerDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
-                onClick = { viewModel.updateNotes(noteDraft) },
+                onClick = { onUpdateNotes(noteDraft) },
                 enabled = noteDraft != customer.notes,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
             ) { Text("Save note") }

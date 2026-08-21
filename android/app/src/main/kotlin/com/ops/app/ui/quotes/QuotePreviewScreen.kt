@@ -47,6 +47,25 @@ fun QuotePreviewScreen(
     viewModel: QuotePreviewViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    QuotePreviewContent(
+        uiState = uiState,
+        onBack = onBack,
+        onMarkSent = viewModel::markSent,
+        onMarkDeclined = viewModel::markDeclined,
+        onMarkAccepted = { viewModel.markAccepted(onJobReady) },
+    )
+}
+
+/** Stateless render of [QuotePreviewScreen] — split out for the screenshot
+ * pack (see android/README.md); not called from navigation directly. */
+@Composable
+fun QuotePreviewContent(
+    uiState: QuotePreviewUiState,
+    onBack: () -> Unit,
+    onMarkSent: () -> Unit,
+    onMarkDeclined: () -> Unit,
+    onMarkAccepted: () -> Unit,
+) {
     val context = LocalContext.current
     val quote = uiState.quote
 
@@ -64,7 +83,7 @@ fun QuotePreviewScreen(
                             putExtra(Intent.EXTRA_TEXT, text)
                         }
                         context.startActivity(Intent.createChooser(sendIntent, "Send quote"))
-                        viewModel.markSent()
+                        onMarkSent()
                     }) { Icon(Icons.Filled.Share, contentDescription = "Send") }
                 },
             )
@@ -125,8 +144,8 @@ fun QuotePreviewScreen(
             }
 
             Row(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = viewModel::markDeclined, modifier = Modifier.weight(1f)) { Text("Declined") }
-                Button(onClick = { viewModel.markAccepted(onJobReady) }, modifier = Modifier.weight(1f)) { Text("Accepted") }
+                OutlinedButton(onClick = onMarkDeclined, modifier = Modifier.weight(1f)) { Text("Declined") }
+                Button(onClick = onMarkAccepted, modifier = Modifier.weight(1f)) { Text("Accepted") }
             }
         }
     }

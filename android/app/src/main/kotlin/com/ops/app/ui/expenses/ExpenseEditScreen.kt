@@ -94,6 +94,48 @@ fun ExpenseEditScreen(
         }
     }
 
+    ExpenseEditContent(
+        uiState = uiState,
+        jobs = jobs,
+        suppliers = suppliers,
+        onBack = onBack,
+        onUpdate = viewModel::update,
+        onSave = viewModel::save,
+        onDelete = viewModel::delete,
+        onRetryReceiptUpload = viewModel::retryReceiptUpload,
+        onTakePhoto = {
+            scope.launch {
+                val uri = withContext(Dispatchers.IO) { createTempCameraUri(context) }
+                pendingCameraUri = uri
+                cameraLauncher.launch(uri)
+            }
+        },
+        onChoosePhoto = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+    )
+}
+
+/** Stateless render of [ExpenseEditScreen] — split out for the screenshot
+ * pack (see android/README.md); not called from navigation directly. The
+ * receipt-capture buttons are passed in as plain callbacks since the
+ * actual camera/gallery activity-result launchers need to stay registered
+ * in [ExpenseEditScreen] itself. */
+@Composable
+fun ExpenseEditContent(
+    uiState: ExpenseEditUiState,
+    jobs: List<JobEntity>,
+    suppliers: List<SupplierEntity>,
+    onBack: () -> Unit,
+    onUpdate: ((ExpenseEditUiState) -> ExpenseEditUiState) -> Unit,
+    onSave: (() -> Unit) -> Unit,
+    onDelete: (() -> Unit) -> Unit,
+    onRetryReceiptUpload: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onChoosePhoto: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -127,7 +169,7 @@ fun ExpenseEditScreen(
 
             OutlinedTextField(
                 value = uiState.amount,
-                onValueChange = { viewModel.update { s -> s.copy(amount = it, amountError = null) } },
+                onValueChange = { onUpdate { s -> s.copy(amount = it, amountError = null) } },
                 label = { Text("Amount paid (R)") },
                 isError = uiState.amountError != null,
                 supportingText = uiState.amountError?.let { { Text(it) } },
@@ -139,7 +181,7 @@ fun ExpenseEditScreen(
                 Text("Includes VAT?", modifier = Modifier.weight(1f))
                 Switch(
                     checked = uiState.isVatApplicable,
-                    onCheckedChange = { viewModel.update { s -> s.copy(isVatApplicable = it) } },
+                    onCheckedChange = { onUpdate { s -> s.copy(isVatApplicable = it) } },
                 )
             }
             if (uiState.isVatApplicable) {
@@ -154,20 +196,20 @@ fun ExpenseEditScreen(
                 label = "Category",
                 options = EXPENSE_CATEGORY_CHOICES,
                 selected = uiState.category,
-                onSelected = { viewModel.update { s -> s.copy(category = it) } },
+                onSelected = { onUpdate { s -> s.copy(category = it) } },
             )
 
             DateField(
                 label = "Date",
                 value = uiState.date,
-                onValueChange = { picked -> picked?.let { viewModel.update { s -> s.copy(date = it, dateError = null) } } },
+                onValueChange = { picked -> picked?.let { onUpdate { s -> s.copy(date = it, dateError = null) } } },
                 clearable = false,
             )
             uiState.dateError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
             OutlinedTextField(
                 value = uiState.description,
-                onValueChange = { viewModel.update { s -> s.copy(description = it) } },
+                onValueChange = { onUpdate { s -> s.copy(description = it) } },
                 label = { Text("Description") },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -176,14 +218,14 @@ fun ExpenseEditScreen(
                 label = "Job / project (optional)",
                 options = listOf(NO_JOB to "None") + jobs.map { it.id to (it.number ?: it.title) },
                 selected = uiState.jobId ?: NO_JOB,
-                onSelected = { viewModel.update { s -> s.copy(jobId = it.ifBlank { null }) } },
+                onSelected = { onUpdate { s -> s.copy(jobId = it.ifBlank { null }) } },
             )
 
             LabeledDropdown(
                 label = "Supplier (optional)",
                 options = listOf(NO_SUPPLIER to "None") + suppliers.map { it.id to it.name },
                 selected = uiState.supplierId ?: NO_SUPPLIER,
-                onSelected = { viewModel.update { s -> s.copy(supplierId = it.ifBlank { null }) } },
+                onSelected = { onUpdate { s -> s.copy(supplierId = it.ifBlank { null }) } },
             )
 
             SectionHeader("Receipt")
@@ -203,23 +245,15 @@ fun ExpenseEditScreen(
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = {
-                            scope.launch {
-                                val uri = withContext(Dispatchers.IO) { createTempCameraUri(context) }
-                                pendingCameraUri = uri
-                                cameraLauncher.launch(uri)
-                            }
-                        }) { Text("Take photo") }
-                        OutlinedButton(onClick = {
-                            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }) { Text("Choose photo") }
+                        OutlinedButton(onClick = onTakePhoto) { Text("Take photo") }
+                        OutlinedButton(onClick = onChoosePhoto) { Text("Choose photo") }
                     }
                     when (uiState.receiptSyncState) {
                         ReceiptSyncState.PENDING -> Text("Saved on this phone — uploads when back online.", style = MaterialTheme.typography.bodySmall)
                         ReceiptSyncState.UPLOADING -> Text("Uploading…", style = MaterialTheme.typography.bodySmall)
                         ReceiptSyncState.FAILED -> ErrorBanner(
                             message = uiState.receiptSyncError ?: "Couldn't upload the photo.",
-                            onRetry = viewModel::retryReceiptUpload,
+                            onRetry = onRetryReceiptUpload,
                         )
                         else -> {}
                     }
@@ -228,7 +262,7 @@ fun ExpenseEditScreen(
 
             Button(
                 onClick = {
-                    viewModel.save {
+                    onSave {
                         scope.launch { snackbarHostState.showSnackbar("Saved") }
                     }
                 },
@@ -244,7 +278,7 @@ fun ExpenseEditScreen(
             title = { Text("Delete this expense?") },
             text = { Text("This removes it from your records. Anything already synced is removed there too.") },
             confirmButton = {
-                Button(onClick = { showDeleteConfirm = false; viewModel.delete(onBack) }) { Text("Delete") }
+                Button(onClick = { showDeleteConfirm = false; onDelete(onBack) }) { Text("Delete") }
             },
             dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } },
         )

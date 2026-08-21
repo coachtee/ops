@@ -48,6 +48,27 @@ fun PayslipEditScreen(
     viewModel: PayslipEditViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    PayslipEditContent(
+        uiState = uiState,
+        onBack = onBack,
+        onUpdate = viewModel::update,
+        onMarkPaidToday = viewModel::markPaidToday,
+        onSave = viewModel::save,
+        onDelete = viewModel::delete,
+    )
+}
+
+/** Stateless render of [PayslipEditScreen] — split out for the screenshot
+ * pack (see android/README.md); not called from navigation directly. */
+@Composable
+fun PayslipEditContent(
+    uiState: PayslipEditUiState,
+    onBack: () -> Unit,
+    onUpdate: ((PayslipEditUiState) -> PayslipEditUiState) -> Unit,
+    onMarkPaidToday: () -> Unit,
+    onSave: (() -> Unit) -> Unit,
+    onDelete: (() -> Unit) -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -91,14 +112,14 @@ fun PayslipEditScreen(
                 DateField(
                     label = "Period start",
                     value = uiState.periodStart,
-                    onValueChange = { picked -> picked?.let { viewModel.update { s -> s.copy(periodStart = it, periodError = null) } } },
+                    onValueChange = { picked -> picked?.let { onUpdate { s -> s.copy(periodStart = it, periodError = null) } } },
                     clearable = false,
                     modifier = Modifier.weight(1f),
                 )
                 DateField(
                     label = "Period end",
                     value = uiState.periodEnd,
-                    onValueChange = { picked -> picked?.let { viewModel.update { s -> s.copy(periodEnd = it, periodError = null) } } },
+                    onValueChange = { picked -> picked?.let { onUpdate { s -> s.copy(periodEnd = it, periodError = null) } } },
                     clearable = false,
                     modifier = Modifier.weight(1f),
                 )
@@ -107,7 +128,7 @@ fun PayslipEditScreen(
 
             OutlinedTextField(
                 value = uiState.grossPay,
-                onValueChange = { viewModel.update { s -> s.copy(grossPay = it, grossPayError = null) } },
+                onValueChange = { onUpdate { s -> s.copy(grossPay = it, grossPayError = null) } },
                 label = { Text("Gross pay (R)") },
                 isError = uiState.grossPayError != null,
                 supportingText = uiState.grossPayError?.let { { Text(it) } },
@@ -117,7 +138,7 @@ fun PayslipEditScreen(
 
             OutlinedTextField(
                 value = uiState.deductions,
-                onValueChange = { viewModel.update { s -> s.copy(deductions = it, deductionsError = null) } },
+                onValueChange = { onUpdate { s -> s.copy(deductions = it, deductionsError = null) } },
                 label = { Text("Deductions (R)") },
                 isError = uiState.deductionsError != null,
                 supportingText = uiState.deductionsError?.let { { Text(it) } },
@@ -127,7 +148,7 @@ fun PayslipEditScreen(
 
             OutlinedTextField(
                 value = uiState.deductionsNote,
-                onValueChange = { viewModel.update { s -> s.copy(deductionsNote = it) } },
+                onValueChange = { onUpdate { s -> s.copy(deductionsNote = it) } },
                 label = { Text("What the deductions are for (optional)") },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -140,17 +161,17 @@ fun PayslipEditScreen(
             DateField(
                 label = "Paid date (optional)",
                 value = uiState.paidDate,
-                onValueChange = { picked -> viewModel.update { s -> s.copy(paidDate = picked) } },
+                onValueChange = { picked -> onUpdate { s -> s.copy(paidDate = picked) } },
             )
             if (uiState.paidDate == null) {
-                OutlinedButton(onClick = viewModel::markPaidToday, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onMarkPaidToday, modifier = Modifier.fillMaxWidth()) {
                     Text("Mark as paid today")
                 }
             }
 
             OutlinedTextField(
                 value = uiState.notes,
-                onValueChange = { viewModel.update { s -> s.copy(notes = it) } },
+                onValueChange = { onUpdate { s -> s.copy(notes = it) } },
                 label = { Text("Notes (optional)") },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
@@ -158,7 +179,7 @@ fun PayslipEditScreen(
 
             Button(
                 onClick = {
-                    viewModel.save {
+                    onSave {
                         scope.launch { snackbarHostState.showSnackbar("Saved") }
                     }
                 },
@@ -174,7 +195,7 @@ fun PayslipEditScreen(
             title = { Text("Delete this payslip?") },
             text = { Text("This removes it from your records. Anything already synced is removed there too.") },
             confirmButton = {
-                Button(onClick = { showDeleteConfirm = false; viewModel.delete(onBack) }) { Text("Delete") }
+                Button(onClick = { showDeleteConfirm = false; onDelete(onBack) }) { Text("Delete") }
             },
             dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") } },
         )

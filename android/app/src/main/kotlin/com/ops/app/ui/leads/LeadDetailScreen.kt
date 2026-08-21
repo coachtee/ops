@@ -55,6 +55,31 @@ fun LeadDetailScreen(
     viewModel: LeadDetailViewModel = hiltViewModel(),
 ) {
     val lead by viewModel.lead.collectAsStateWithLifecycle()
+    LeadDetailContent(
+        lead = lead,
+        onBack = onBack,
+        onUpdateStatus = viewModel::updateStatus,
+        onUpdateFollowUpDate = viewModel::updateFollowUpDate,
+        onUpdateNotes = viewModel::updateNotes,
+        onConvertToCustomer = { viewModel.convertToCustomer { onOpenCustomer(it) } },
+        onOpenCustomer = onOpenCustomer,
+        onCreateQuote = { viewModel.createQuote(onCreateQuote) },
+    )
+}
+
+/** Stateless render of [LeadDetailScreen] — split out for the screenshot
+ * pack (see android/README.md); not called from navigation directly. */
+@Composable
+fun LeadDetailContent(
+    lead: com.ops.app.data.local.entities.LeadEntity?,
+    onBack: () -> Unit,
+    onUpdateStatus: (String) -> Unit,
+    onUpdateFollowUpDate: (String?) -> Unit,
+    onUpdateNotes: (String) -> Unit,
+    onConvertToCustomer: () -> Unit,
+    onOpenCustomer: (String) -> Unit,
+    onCreateQuote: () -> Unit,
+) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -119,13 +144,13 @@ fun LeadDetailScreen(
                 label = "Status",
                 options = LEAD_STATUS_CHOICES,
                 selected = currentLead.status,
-                onSelected = viewModel::updateStatus,
+                onSelected = onUpdateStatus,
             )
 
             DateField(
                 label = "Follow-up date",
                 value = currentLead.followUpDate,
-                onValueChange = viewModel::updateFollowUpDate,
+                onValueChange = onUpdateFollowUpDate,
             )
 
             OutlinedTextField(
@@ -136,7 +161,7 @@ fun LeadDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
-                onClick = { viewModel.updateNotes(noteDraft) },
+                onClick = { onUpdateNotes(noteDraft) },
                 enabled = noteDraft != currentLead.notes,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Save note") }
@@ -147,13 +172,13 @@ fun LeadDetailScreen(
                 }
             } else {
                 OutlinedButton(
-                    onClick = { viewModel.convertToCustomer { onOpenCustomer(it) } },
+                    onClick = onConvertToCustomer,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Convert to customer") }
             }
 
             Button(
-                onClick = { viewModel.createQuote(onCreateQuote) },
+                onClick = onCreateQuote,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Create quote") }
         }

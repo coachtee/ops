@@ -1,0 +1,106 @@
+name: Android APK and screenshot pack
+
+# Two independent jobs, both real verification this sandbox can't do locally
+# (no Android SDK, no network to dl.google.com — Google's AGP plugin repo):
+#   assemble-debug-apk — builds an actual, installable :app:assembleDebug APK.
+#   screenshot-pack     — renders the real production screen Composables with
+#                         realistic demo data via Paparazzi (JVM, no emulator)
+#                         and uploads the PNGs as a visual pack. This proves
+#                         what the UI looks like, not that it works end to
+#                         end — see android/README.md's visual-vs-functional
+#                         note.
+
+on:
+  push:
+    branches:
+      - claude/ops-product-architecture-pev7bb
+  workflow_dispatch: {}
+
+jobs:
+  assemble-debug-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      # No gradle/wrapper/ is committed (see android/README.md) — generating
+      # one locally needs the app module's plugins to resolve first, which
+      # needs the same blocked network access. This runner has that access,
+      # so we invoke the provisioned `gradle` directly.
+      - name: Assemble debug APK
+        working-directory: android
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify the APK artifact actually exists
+        working-directory: android
+        run: |
+          echo "Contents of app/build/outputs/apk/debug/:"
+          ls -la app/build/outputs/apk/debug/
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          echo "APK size:"
+          du -h app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-app-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  screenshot-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      # Renders the real production screen Composables (each screen's own
+      # XScreenContent function, the exact code the app ships) with
+      # hand-built realistic South African demo data, on the JVM — no
+      # emulator or Android SDK needed. This is a VISUAL pack: it proves
+      # what the UI looks like, not that taps/sync/persistence work.
+      - name: Render screenshot pack (Paparazzi)
+        working-directory: android
+        run: gradle :app:testDebugUnitTest --tests "com.ops.app.screenshots.ScreenshotTest" --stacktrace --no-daemon
+
+      - name: Collect rendered PNGs
+        working-directory: android
+        run: |
+          mkdir -p /tmp/ops-screenshots
+          find app/build -iname "*.png" -exec cp {} /tmp/ops-screenshots/ \;
+          echo "Collected screenshots:"
+          ls -la /tmp/ops-screenshots/
+
+      - name: Upload screenshot pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-screenshot-pack
+          path: /tmp/ops-screenshots/*.png
+          if-no-files-found: error
+
+      - name: Upload full Paparazzi test report (for debugging)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-paparazzi-test-report
+          path: android/app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore

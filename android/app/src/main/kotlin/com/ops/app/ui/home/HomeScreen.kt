@@ -67,6 +67,45 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val syncChipState by viewModel.syncChipState.collectAsStateWithLifecycle()
+    HomeContent(
+        uiState = uiState,
+        syncChipState = syncChipState,
+        onOpenSyncStatus = onOpenSyncStatus,
+        onOpenSettings = onOpenSettings,
+        onOpenLead = onOpenLead,
+        onOpenJob = onOpenJob,
+        onNewLead = onNewLead,
+        onNewCustomer = onNewCustomer,
+        onPickCustomerForQuote = onPickCustomerForQuote,
+        onPickCustomerForInvoice = onPickCustomerForInvoice,
+        onPickCustomerForPayment = onPickCustomerForPayment,
+        onNewExpense = onNewExpense,
+        onRefresh = { viewModel.refresh() },
+    )
+}
+
+/** Stateless render of [HomeScreen] — split out so a screenshot pack can
+ * render the exact production UI with hand-built fake state, without
+ * needing Hilt/Room/WorkManager (see android/README.md's screenshot pack
+ * notes). Delegates from [HomeScreen] unchanged; not called from
+ * navigation directly. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeContent(
+    uiState: HomeUiState,
+    syncChipState: com.ops.app.data.sync.SyncChipState,
+    onOpenSyncStatus: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenLead: (String) -> Unit,
+    onOpenJob: (String) -> Unit,
+    onNewLead: () -> Unit,
+    onNewCustomer: () -> Unit,
+    onPickCustomerForQuote: () -> Unit,
+    onPickCustomerForInvoice: () -> Unit,
+    onPickCustomerForPayment: () -> Unit,
+    onNewExpense: () -> Unit,
+    onRefresh: suspend () -> Unit,
+) {
     var showQuickAdd by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -92,7 +131,7 @@ fun HomeScreen(
             onRefresh = {
                 isRefreshing = true
                 scope.launch {
-                    viewModel.refresh()
+                    onRefresh()
                     isRefreshing = false
                 }
             },

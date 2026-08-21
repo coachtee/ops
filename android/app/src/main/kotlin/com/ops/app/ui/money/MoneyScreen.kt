@@ -39,7 +39,19 @@ fun MoneyScreen(
     viewModel: MoneyViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    MoneyContent(uiState = uiState, onOpenInvoice = onOpenInvoice, onOpenExpense = onOpenExpense, onNewExpense = onNewExpense, onOpenSuppliers = onOpenSuppliers)
+}
 
+/** Stateless render of [MoneyScreen] — split out for the screenshot pack
+ * (see android/README.md); not called from navigation directly. */
+@Composable
+fun MoneyContent(
+    uiState: MoneyUiState,
+    onOpenInvoice: (String) -> Unit,
+    onOpenExpense: (String) -> Unit,
+    onNewExpense: () -> Unit,
+    onOpenSuppliers: () -> Unit,
+) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Money") }) },
         floatingActionButton = {

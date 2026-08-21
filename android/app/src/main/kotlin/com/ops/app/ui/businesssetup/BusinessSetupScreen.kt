@@ -64,6 +64,36 @@ fun BusinessSetupScreen(
         }
     }
 
+    BusinessSetupContent(
+        uiState = uiState,
+        onSetMode = viewModel::setMode,
+        onUpdateForm = viewModel::updateForm,
+        onNextStep = viewModel::nextStep,
+        onPreviousStep = viewModel::previousStep,
+        onPickLogo = { logoPicker.launch("image/*") },
+        onSubmitCreate = { viewModel.submitCreate(onSetupComplete) },
+        onSubmitSignIn = { viewModel.submitSignIn(onSetupComplete) },
+        onUpdateSignInEmail = viewModel::updateSignInEmail,
+        onUpdateSignInPassword = viewModel::updateSignInPassword,
+    )
+}
+
+/** Stateless render of [BusinessSetupScreen] — split out for the
+ * screenshot pack (see android/README.md); not called from navigation
+ * directly. */
+@Composable
+fun BusinessSetupContent(
+    uiState: BusinessSetupUiState,
+    onSetMode: (BusinessSetupMode) -> Unit,
+    onUpdateForm: ((BusinessSetupForm) -> BusinessSetupForm) -> Unit,
+    onNextStep: () -> Unit,
+    onPreviousStep: () -> Unit,
+    onPickLogo: () -> Unit,
+    onSubmitCreate: () -> Unit,
+    onSubmitSignIn: () -> Unit,
+    onUpdateSignInEmail: (String) -> Unit,
+    onUpdateSignInPassword: (String) -> Unit,
+) {
     Scaffold { padding ->
         Column(
             modifier = Modifier
@@ -87,8 +117,8 @@ fun BusinessSetupScreen(
 
             val selectedTab = if (uiState.mode == BusinessSetupMode.CREATE) 0 else 1
             TabRow(selectedTabIndex = selectedTab) {
-                Tab(selected = selectedTab == 0, onClick = { viewModel.setMode(BusinessSetupMode.CREATE) }, text = { Text("Create business") })
-                Tab(selected = selectedTab == 1, onClick = { viewModel.setMode(BusinessSetupMode.SIGN_IN) }, text = { Text("Sign in") })
+                Tab(selected = selectedTab == 0, onClick = { onSetMode(BusinessSetupMode.CREATE) }, text = { Text("Create business") })
+                Tab(selected = selectedTab == 1, onClick = { onSetMode(BusinessSetupMode.SIGN_IN) }, text = { Text("Sign in") })
             }
 
             Column(Modifier.padding(top = 16.dp)) {
@@ -96,9 +126,9 @@ fun BusinessSetupScreen(
                     ErrorBanner(
                         message = uiState.errorMessage!!,
                         onRetry = if (uiState.mode == BusinessSetupMode.CREATE) {
-                            { viewModel.submitCreate(onSetupComplete) }
+                            { onSubmitCreate() }
                         } else {
-                            { viewModel.submitSignIn(onSetupComplete) }
+                            { onSubmitSignIn() }
                         },
                         modifier = Modifier.padding(bottom = 16.dp),
                     )
@@ -107,20 +137,20 @@ fun BusinessSetupScreen(
                 if (uiState.mode == BusinessSetupMode.CREATE) {
                     CreateBusinessWizard(
                         uiState = uiState,
-                        onFormChange = viewModel::updateForm,
-                        onNext = viewModel::nextStep,
-                        onBack = viewModel::previousStep,
-                        onPickLogo = { logoPicker.launch("image/*") },
-                        onFinish = { viewModel.submitCreate(onSetupComplete) },
+                        onFormChange = onUpdateForm,
+                        onNext = onNextStep,
+                        onBack = onPreviousStep,
+                        onPickLogo = onPickLogo,
+                        onFinish = onSubmitCreate,
                     )
                 } else {
                     SignInForm(
                         email = uiState.signInEmail,
                         password = uiState.signInPassword,
                         isLoading = uiState.isLoading,
-                        onEmailChange = viewModel::updateSignInEmail,
-                        onPasswordChange = viewModel::updateSignInPassword,
-                        onSubmit = { viewModel.submitSignIn(onSetupComplete) },
+                        onEmailChange = onUpdateSignInEmail,
+                        onPasswordChange = onUpdateSignInPassword,
+                        onSubmit = onSubmitSignIn,
                     )
                 }
             }

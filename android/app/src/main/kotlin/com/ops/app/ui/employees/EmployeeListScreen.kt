@@ -36,7 +36,18 @@ fun EmployeeListScreen(
     viewModel: EmployeeListViewModel = hiltViewModel(),
 ) {
     val employees by viewModel.employees.collectAsStateWithLifecycle()
+    EmployeeListContent(employees = employees, onBack = onBack, onOpenEmployee = onOpenEmployee, onNewEmployee = onNewEmployee)
+}
 
+/** Stateless render of [EmployeeListScreen] — split out for the screenshot
+ * pack (see android/README.md); not called from navigation directly. */
+@Composable
+fun EmployeeListContent(
+    employees: List<com.ops.app.data.local.entities.EmployeeEntity>,
+    onBack: () -> Unit,
+    onOpenEmployee: (String) -> Unit,
+    onNewEmployee: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(

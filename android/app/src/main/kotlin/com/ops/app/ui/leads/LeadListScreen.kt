@@ -34,7 +34,19 @@ fun LeadListScreen(
     viewModel: LeadListViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LeadListScreenContent(uiState = uiState, onFilterChange = viewModel::setFilter, onOpenLead = onOpenLead, onNewLead = onNewLead)
+}
 
+/** Full-screen stateless render of [LeadListScreen] (Scaffold chrome +
+ * [LeadListContent]) — split out for the screenshot pack (see
+ * android/README.md); not called from navigation directly. */
+@Composable
+fun LeadListScreenContent(
+    uiState: LeadListUiState,
+    onFilterChange: (LeadListFilter) -> Unit,
+    onOpenLead: (String) -> Unit,
+    onNewLead: () -> Unit,
+) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Leads") }) },
         floatingActionButton = {
@@ -43,7 +55,7 @@ fun LeadListScreen(
     ) { padding ->
         LeadListContent(
             uiState = uiState,
-            onFilterChange = viewModel::setFilter,
+            onFilterChange = onFilterChange,
             onOpenLead = onOpenLead,
             padding = padding,
         )

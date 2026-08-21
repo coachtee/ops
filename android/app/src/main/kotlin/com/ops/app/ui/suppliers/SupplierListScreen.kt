@@ -32,7 +32,18 @@ fun SupplierListScreen(
     viewModel: SupplierListViewModel = hiltViewModel(),
 ) {
     val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
+    SupplierListContent(suppliers = suppliers, onBack = onBack, onOpenSupplier = onOpenSupplier, onNewSupplier = onNewSupplier)
+}
 
+/** Stateless render of [SupplierListScreen] — split out for the screenshot
+ * pack (see android/README.md); not called from navigation directly. */
+@Composable
+fun SupplierListContent(
+    suppliers: List<com.ops.app.data.local.entities.SupplierEntity>,
+    onBack: () -> Unit,
+    onOpenSupplier: (String) -> Unit,
+    onNewSupplier: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(

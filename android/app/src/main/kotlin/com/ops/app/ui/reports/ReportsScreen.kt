@@ -40,7 +40,13 @@ private val MONTH_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM yy
 @Composable
 fun ReportsScreen(viewModel: ReportsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    ReportsContent(uiState)
+}
 
+/** Stateless render of [ReportsScreen] — split out for the screenshot pack
+ * (see android/README.md); not called from navigation directly. */
+@Composable
+fun ReportsContent(uiState: ReportsUiState) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Reports") }) },
     ) { padding ->
