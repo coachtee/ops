@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val LightColors = lightColorScheme(
@@ -25,6 +26,14 @@ private val LightColors = lightColorScheme(
     surface = OpsNeutral99,
     onBackground = OpsNeutral10,
     onSurface = OpsNeutral10,
+    // v2: card/list-row borders and secondary text get their own deliberate
+    // tokens instead of Material's generated tones, so every screen's
+    // "muted" text and outline reads as the same grey-green, not a dozen
+    // slightly different auto-derived greys.
+    surfaceVariant = OpsSurfaceSunkenLight,
+    onSurfaceVariant = Color(0xFF5B685F),
+    outline = OpsBorderLight,
+    outlineVariant = OpsBorderLight,
 )
 
 private val DarkColors = darkColorScheme(
@@ -34,11 +43,18 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = OpsGreen90,
     secondary = OpsAmber90,
     onSecondary = OpsGreen20,
+    secondaryContainer = OpsAmber20,
+    onSecondaryContainer = OpsAmber90,
     error = OpsRed90,
+    errorContainer = Color(0xFF3A1613),
     background = OpsNeutral10,
     surface = OpsNeutral10,
     onBackground = OpsNeutral90,
     onSurface = OpsNeutral90,
+    surfaceVariant = OpsSurfaceSunkenDark,
+    onSurfaceVariant = Color(0xFF93A197),
+    outline = OpsBorderDark,
+    outlineVariant = OpsBorderDark,
 )
 
 /**

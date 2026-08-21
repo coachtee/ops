@@ -1,5 +1,8 @@
 package com.ops.app.ui.home
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,8 +21,6 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -29,6 +30,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -39,16 +42,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ops.app.ui.components.ActionableListRow
+import com.ops.app.ui.components.COMPLIANCE_CATEGORY_CHOICES
 import com.ops.app.ui.components.EmptyState
 import com.ops.app.ui.components.SectionHeader
+import com.ops.app.ui.components.StatCard
 import com.ops.app.ui.components.SyncStatusChip
 import com.ops.app.ui.components.formatDate
 import com.ops.app.ui.components.formatZar
+import com.ops.app.ui.components.labelFor
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +66,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenLead: (String) -> Unit,
     onOpenJob: (String) -> Unit,
+    onOpenCompliance: () -> Unit,
     onNewLead: () -> Unit,
     onNewCustomer: () -> Unit,
     onPickCustomerForQuote: () -> Unit,
@@ -74,6 +84,7 @@ fun HomeScreen(
         onOpenSettings = onOpenSettings,
         onOpenLead = onOpenLead,
         onOpenJob = onOpenJob,
+        onOpenCompliance = onOpenCompliance,
         onNewLead = onNewLead,
         onNewCustomer = onNewCustomer,
         onPickCustomerForQuote = onPickCustomerForQuote,
@@ -98,6 +109,7 @@ fun HomeContent(
     onOpenSettings: () -> Unit,
     onOpenLead: (String) -> Unit,
     onOpenJob: (String) -> Unit,
+    onOpenCompliance: () -> Unit,
     onNewLead: () -> Unit,
     onNewCustomer: () -> Unit,
     onPickCustomerForQuote: () -> Unit,
@@ -109,6 +121,16 @@ fun HomeContent(
     var showQuickAdd by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    fun launchIntent(intent: Intent) {
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            scope.launch { snackbarHostState.showSnackbar("No app found to handle that.") }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -125,6 +147,7 @@ fun HomeContent(
                 Icon(Icons.Filled.Add, contentDescription = "Quick add")
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -137,9 +160,12 @@ fun HomeContent(
             },
             modifier = Modifier.padding(padding).fillMaxSize(),
         ) {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 item {
-                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         StatCard("Money in", formatZar(uiState.moneyInThisMonth), Modifier.weight(1f))
                         StatCard("Money out", formatZar(uiState.moneyOutThisMonth), Modifier.weight(1f))
                         StatCard("Outstanding", formatZar(uiState.outstandingTotal), Modifier.weight(1f), emphasise = uiState.outstandingTotal.signum() > 0)
@@ -151,10 +177,20 @@ fun HomeContent(
                     item { EmptyState("All caught up", "No leads are waiting on a follow-up right now.") }
                 } else {
                     items(uiState.leadsNeedingFollowUp, key = { it.id }) { lead ->
-                        ListItem(
-                            headlineContent = { Text(lead.name) },
-                            supportingContent = { Text("Follow up by ${formatDate(lead.followUpDate)} · ${lead.phone}") },
-                            modifier = Modifier.fillMaxWidth().clickable { onOpenLead(lead.id) },
+                        ActionableListRow(
+                            primary = lead.name,
+                            secondary = "Follow up by ${formatDate(lead.followUpDate)}",
+                            onClick = { onOpenLead(lead.id) },
+                            onCall = if (lead.phone.isNotBlank()) {
+                                { launchIntent(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.phone}"))) }
+                            } else {
+                                null
+                            },
+                            onMessage = if (lead.phone.isNotBlank()) {
+                                { launchIntent(Intent(Intent.ACTION_VIEW, Uri.parse("smsto:${lead.phone}"))) }
+                            } else {
+                                null
+                            },
                         )
                     }
                 }
@@ -164,10 +200,32 @@ fun HomeContent(
                     item { EmptyState("No active jobs", "Jobs appear here once a quote is accepted.") }
                 } else {
                     items(uiState.activeJobs, key = { it.id }) { job ->
-                        ListItem(
-                            headlineContent = { Text(job.number ?: job.title) },
-                            supportingContent = { Text(if (job.number != null) job.title else "Draft — not yet synced") },
-                            modifier = Modifier.fillMaxWidth().clickable { onOpenJob(job.id) },
+                        ActionableListRow(
+                            primary = job.number ?: job.title,
+                            secondary = if (job.number != null) job.title else "Draft — not yet synced",
+                            trailingValue = job.status.replace('_', ' ').replaceFirstChar { it.uppercase() },
+                            onClick = { onOpenJob(job.id) },
+                        )
+                    }
+                }
+
+                uiState.upcomingComplianceItem?.let { complianceItem ->
+                    item { SectionHeader("Compliance") }
+                    item {
+                        val daysUntil = runCatching {
+                            ChronoUnit.DAYS.between(LocalDate.now(), LocalDate.parse(complianceItem.dueDate))
+                        }.getOrDefault(0L)
+                        val whenText = when {
+                            daysUntil < 0 -> "Overdue by ${-daysUntil} day${if (daysUntil == -1L) "" else "s"}"
+                            daysUntil == 0L -> "Due today"
+                            else -> "Due in $daysUntil day${if (daysUntil == 1L) "" else "s"}"
+                        }
+                        ActionableListRow(
+                            primary = complianceItem.title,
+                            secondary = labelFor(COMPLIANCE_CATEGORY_CHOICES, complianceItem.category),
+                            trailingValue = whenText,
+                            trailingEmphasis = true,
+                            onClick = onOpenCompliance,
                         )
                     }
                 }
@@ -186,21 +244,6 @@ fun HomeContent(
                 QuickAddRow(Icons.Filled.Savings, "Record payment") { showQuickAdd = false; onPickCustomerForPayment() }
                 QuickAddRow(Icons.Filled.MoneyOff, "Record expense") { showQuickAdd = false; onNewExpense() }
             }
-        }
-    }
-}
-
-@Composable
-private fun StatCard(label: String, value: String, modifier: Modifier = Modifier, emphasise: Boolean = false) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = if (emphasise) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        ),
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

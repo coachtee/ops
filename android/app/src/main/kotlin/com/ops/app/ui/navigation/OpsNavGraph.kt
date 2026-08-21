@@ -77,6 +77,7 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
                 onOpenSettings = { navController.navigate(OpsDestinations.BUSINESS_PROFILE) },
                 onOpenLead = { navController.navigate(OpsDestinations.leadDetail(it)) },
                 onOpenJob = { navController.navigate(OpsDestinations.jobDetail(it)) },
+                onOpenCompliance = { navController.navigate(OpsDestinations.COMPLIANCE) },
                 onNewLead = { navController.navigate(OpsDestinations.LEAD_NEW) },
                 onNewCustomer = { navController.navigate(OpsDestinations.CUSTOMER_NEW) },
                 onPickCustomerForQuote = { navController.navigate(OpsDestinations.customers("quote")) },

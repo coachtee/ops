@@ -2,9 +2,11 @@ package com.ops.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ops.app.data.local.entities.ComplianceItemEntity
 import com.ops.app.data.local.entities.JobEntity
 import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.repository.BusinessRepository
+import com.ops.app.data.repository.ComplianceItemRepository
 import com.ops.app.data.repository.ExpenseRepository
 import com.ops.app.data.repository.InvoiceRepository
 import com.ops.app.data.repository.JobRepository
@@ -35,7 +37,15 @@ data class HomeUiState(
     val outstandingTotal: BigDecimal = BigDecimal.ZERO,
     val leadsNeedingFollowUp: List<LeadEntity> = emptyList(),
     val activeJobs: List<JobEntity> = emptyList(),
+    /** The single soonest-due, not-yet-completed compliance item, shown
+     * only when due within 14 days (which naturally includes anything
+     * already overdue) — Design System v2's "tell the owner what needs
+     * attention" strip on Home. Null when nothing is that close, so the
+     * strip disappears rather than nagging about a return due in 3 months. */
+    val upcomingComplianceItem: ComplianceItemEntity? = null,
 )
+
+private const val COMPLIANCE_LOOKAHEAD_DAYS = 14L
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -45,12 +55,13 @@ class HomeViewModel @Inject constructor(
     invoiceRepository: InvoiceRepository,
     paymentRepository: PaymentRepository,
     expenseRepository: ExpenseRepository,
+    complianceItemRepository: ComplianceItemRepository,
     private val syncManager: SyncManager,
 ) : ViewModel() {
 
-    // combine() only has typed overloads up to 5 flows; nesting two keeps
-    // every value fully typed rather than falling back to the untyped
-    // vararg overload's Array<Any?> + unchecked casts.
+    // combine() only has typed overloads up to 5 flows; nesting keeps every
+    // value fully typed rather than falling back to the untyped vararg
+    // overload's Array<Any?> + unchecked casts.
     private val businessLeadsJobs = combine(
         businessRepository.observe(),
         leadRepository.observeAll(),
@@ -66,9 +77,17 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = combine(
         businessLeadsJobs,
         invoicesPaymentsExpenses,
-    ) { (business, leads, jobs), (invoices, payments, expenses) ->
+        complianceItemRepository.observeAll(),
+    ) { (business, leads, jobs), (invoices, payments, expenses), complianceItems ->
         val today = LocalDate.now()
         val thisMonth = YearMonth.now()
+
+        val upcomingCompliance = complianceItems
+            .filter { it.completedDate == null }
+            .mapNotNull { item -> runCatching { LocalDate.parse(item.dueDate) }.getOrNull()?.let { item to it } }
+            .minByOrNull { (_, dueDate) -> dueDate }
+            ?.takeIf { (_, dueDate) -> !dueDate.isAfter(today.plusDays(COMPLIANCE_LOOKAHEAD_DAYS)) }
+            ?.first
 
         val moneyIn = payments
             .filter { runCatching { YearMonth.from(LocalDate.parse(it.paidDate)) == thisMonth }.getOrDefault(false) }
@@ -103,6 +122,7 @@ class HomeViewModel @Inject constructor(
             outstandingTotal = outstanding,
             leadsNeedingFollowUp = followUpDue,
             activeJobs = active,
+            upcomingComplianceItem = upcomingCompliance,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
