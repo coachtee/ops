@@ -96,3 +96,40 @@ class MoneyTest {
         assertEquals(BigDecimal("1125.00"), result)
     }
 }
+
+/**
+ * Mirrors backend/tests/test_money.py's VatInclusiveExtractionTests
+ * case-for-case. Expenses run VAT the opposite direction from
+ * quotes/invoices — see Money.extractVatFromInclusive's doc comment.
+ */
+class VatInclusiveExtractionTest {
+
+    @Test
+    fun `clean multiple of 115 extracts exactly`() {
+        // R115 inclusive = R100 exclusive + R15 VAT, the textbook case.
+        assertEquals(BigDecimal("15.00"), Money.extractVatFromInclusive(BigDecimal("115.00"), true))
+    }
+
+    @Test
+    fun `another clean case`() {
+        assertEquals(BigDecimal("30.00"), Money.extractVatFromInclusive(BigDecimal("230.00"), true))
+    }
+
+    @Test
+    fun `rounds half up on an unclean division`() {
+        // 100 * 15/115 = 13.0434... -> 13.04
+        assertEquals(BigDecimal("13.04"), Money.extractVatFromInclusive(BigDecimal("100.00"), true))
+        // 50 * 15/115 = 6.5217... -> 6.52
+        assertEquals(BigDecimal("6.52"), Money.extractVatFromInclusive(BigDecimal("50.00"), true))
+    }
+
+    @Test
+    fun `not vat applicable is always zero`() {
+        assertEquals(BigDecimal("0.00"), Money.extractVatFromInclusive(BigDecimal("1000.00"), false))
+    }
+
+    @Test
+    fun `zero amount extracts zero`() {
+        assertEquals(BigDecimal("0.00"), Money.extractVatFromInclusive(BigDecimal("0.00"), true))
+    }
+}

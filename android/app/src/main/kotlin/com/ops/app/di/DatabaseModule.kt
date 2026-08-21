@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.ops.app.data.local.OpsDatabase
 import com.ops.app.data.local.dao.BusinessDao
 import com.ops.app.data.local.dao.CustomerDao
+import com.ops.app.data.local.dao.ExpenseDao
 import com.ops.app.data.local.dao.InvoiceDao
 import com.ops.app.data.local.dao.InvoiceLineItemDao
 import com.ops.app.data.local.dao.JobDao
@@ -26,7 +27,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): OpsDatabase =
-        Room.databaseBuilder(context, OpsDatabase::class.java, OpsDatabase.DATABASE_NAME).build()
+        Room.databaseBuilder(context, OpsDatabase::class.java, OpsDatabase.DATABASE_NAME)
+            .fallbackToDestructiveMigration() // see OpsDatabase's version-bump comment
+            .build()
 
     @Provides
     fun provideBusinessDao(db: OpsDatabase): BusinessDao = db.businessDao()
@@ -54,4 +57,7 @@ object DatabaseModule {
 
     @Provides
     fun providePaymentDao(db: OpsDatabase): PaymentDao = db.paymentDao()
+
+    @Provides
+    fun provideExpenseDao(db: OpsDatabase): ExpenseDao = db.expenseDao()
 }

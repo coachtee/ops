@@ -9,7 +9,7 @@ package com.ops.coredomain
  *   - CustomerType                -> backend/crm/models.py (Customer)
  *   - QuoteStatus                 -> backend/sales/models.py (Quote)
  *   - JobStatus                   -> backend/work/models.py (Job)
- *   - InvoiceStatus / PaymentMethod -> backend/finance/models.py
+ *   - InvoiceStatus / PaymentMethod / ExpenseCategory -> backend/finance/models.py
  *
  * Each enum carries its own [wire] value rather than relying on `name`, so a
  * future Kotlin-side rename never silently breaks the network contract, and
@@ -113,5 +113,27 @@ enum class PaymentMethod(override val wire: String) : WireEnum {
 
     companion object {
         fun fromWire(wire: String): PaymentMethod = requireWire(entries.toTypedArray(), wire, "PaymentMethod")
+    }
+}
+
+enum class ExpenseCategory(override val wire: String) : WireEnum {
+    MATERIALS_STOCK("materials_stock"),
+    FUEL_TRAVEL("fuel_travel"),
+    TOOLS_EQUIPMENT("tools_equipment"),
+    RENT("rent"),
+    UTILITIES("utilities"),
+    INSURANCE("insurance"),
+    BANK_CHARGES("bank_charges"),
+    PROFESSIONAL_FEES("professional_fees"),
+    MARKETING("marketing"),
+    TELEPHONE_INTERNET("telephone_internet"),
+    VEHICLE("vehicle"),
+    REPAIRS_MAINTENANCE("repairs_maintenance"),
+    WAGES_SUBCONTRACTORS("wages_subcontractors"),
+    OTHER("other"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): ExpenseCategory = requireWire(entries.toTypedArray(), wire, "ExpenseCategory")
     }
 }

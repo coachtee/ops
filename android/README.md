@@ -3,9 +3,11 @@
 Mobile-first, offline-first Android client for OPS, a South African small-business operating
 system. See `../docs/DISCOVERY.md` for the product/architecture rationale and
 `../docs/API_CONTRACT.md` for the exact network contract this app implements against. This
-module implements the V1 vertical slice: business setup, leads, customers, quotes, jobs,
-invoices, payments, the home dashboard, and offline sync — nothing more (see DISCOVERY.md
-section 10 for what's deliberately deferred to later milestones).
+module implements the V1 vertical slice — business setup, leads, customers, quotes, jobs,
+invoices, payments, the home dashboard, and offline sync — plus the Expenses milestone that
+followed it (capture, receipt photo attachment, VAT-inclusive extraction, categories, optional
+job/project link, offline-first the same as everything else). See DISCOVERY.md section 10 for
+what's still deliberately deferred (Suppliers, Employees/Payslips, Compliance, full Reports).
 
 ## Module layout
 
@@ -22,7 +24,10 @@ android/
 
 - `Money.kt` — VAT_RATE = 0.15 (BigDecimal), `computeLineTotal`, `computeDocumentTotals`.
   Mirrors `backend/common/money.py` field-for-field: quantize to 2dp HALF_UP, discount applied
-  before VAT, taxable amount never negative, VAT is 0.00 when not applicable.
+  before VAT, taxable amount never negative, VAT is 0.00 when not applicable. Also
+  `extractVatFromInclusive` for expenses, which run VAT the *opposite* direction — the owner
+  already knows the total paid, and this extracts the VAT portion already inside it
+  (`amount * 15/115`) rather than adding VAT on top of a subtotal.
 - `SyncDecision.kt` — `decideSyncOutcome(existingUpdatedAt, incomingUpdatedAt)`, the same
   last-write-wins comparison `backend/sync/services.py` makes server-side. The Android sync
   client (`app`'s `SyncManager`) calls this on every pulled row before letting it overwrite a
@@ -31,32 +36,48 @@ android/
   never `+00:00` (an un-encoded `+` in a URL query string decodes as a space under
   form-encoding, corrupting the sync `since` cursor — see API_CONTRACT.md's opening section).
 - `Enums.kt` — `LeadSource`, `LeadStatus`, `QuoteStatus`, `JobStatus`, `InvoiceStatus`,
-  `PaymentMethod`, `CustomerType`, each carrying the exact wire string from the matching
-  Django model's `choices`, checked against `backend/{crm,sales,work,finance}/models.py`.
+  `PaymentMethod`, `CustomerType`, `ExpenseCategory`, each carrying the exact wire string from
+  the matching Django model's `choices`, checked against
+  `backend/{crm,sales,work,finance}/models.py`.
 
 ### `app` (Android application, `com.ops.app`, Jetpack Compose, Material 3)
 
 - `data/local/` — Room entities/DAOs/`OpsDatabase`. Every money field (quantity, unit_price,
   line_total, subtotal, vat_amount, total, discount_amount, amount_paid, amount) is a TEXT
-  column holding the canonical decimal string — never REAL/float.
-- `data/remote/` — Retrofit `OpsApiService` (every endpoint in API_CONTRACT.md),
-  kotlinx.serialization DTOs, `AuthHeaderInterceptor` + `TokenAuthenticator` (401 → refresh
-  once → retry).
-- `data/sync/` — `SyncManager`, the offline-sync engine's client half (push → mark
-  accepted/conflict/error → pull → upsert-if-safe → persist cursor), plus `SyncWorker`
-  (WorkManager, ~15 min periodic heartbeat + expedited one-time trigger after local writes).
+  column holding the canonical decimal string — never REAL/float. `ExpenseEntity` additionally
+  carries local-only receipt state (`localReceiptPath`/`receiptSyncState`/`receiptSyncError`,
+  see `ReceiptSyncState`) — a second state machine independent of the record's own
+  `syncState`, since a receipt photo travels through a different sync path (see below). `v2`
+  of the schema (added `ExpenseEntity`) has no migration path from `v1` —
+  `fallbackToDestructiveMigration()` — since this app has never shipped; that stops being
+  acceptable once it does.
+- `data/remote/` — Retrofit `OpsApiService` (every endpoint in API_CONTRACT.md, including the
+  multipart `POST /api/expenses/{id}/receipt/`), kotlinx.serialization DTOs,
+  `AuthHeaderInterceptor` + `TokenAuthenticator` (401 → refresh once → retry).
+- `data/sync/` — `SyncManager`, the offline-sync engine's client half: push → mark
+  accepted/conflict/error → pull → upsert-if-safe → persist cursor, THEN a second, separate
+  phase (`syncReceipts`) that uploads any expense's local receipt photo once — and only once —
+  that expense's own JSON record has confirmed SYNCED (the upload 404s otherwise; see
+  API_CONTRACT.md's "Expense receipt attachments"). Each receipt upload's failure is isolated
+  per-record and never fails the overall sync outcome. Plus `SyncWorker` (WorkManager, ~15 min
+  periodic heartbeat + expedited one-time trigger after local writes).
 - `data/repository/` — one repository per aggregate (Lead, Customer, Quote+line items,
-  Job, Invoice+line items, Payment, Business, Auth) plus `SyncStatusRepository` for the sync
-  status screen's cross-model view.
+  Job, Invoice+line items, Payment, Expense, Business, Auth) plus `SyncStatusRepository` for
+  the sync status screen's cross-model view. `ExpenseRepository.attachReceipt`/`retryReceipt`
+  manage the receipt state machine; `save`/`delete` are the usual PENDING-then-sync pattern.
 - `di/` — Hilt modules for Room, Retrofit/OkHttp, WorkManager. `AuthPreferences`
   (DataStore-backed) and every repository are constructor-injected directly (`@Inject
   constructor`), which is itself Hilt DI — no separate binding module is needed for concrete
   classes with no interface to bind against.
 - `ui/` — one package per screen area (`splash`, `businesssetup`, `home`, `leads`,
-  `customers`, `quotes`, `jobs`, `invoices`, `payments`, `money`, `syncstatus`, `settings`),
-  each with a `@HiltViewModel` + a Compose screen, plus `ui/navigation/OpsNavGraph.kt` wiring
-  all of them together and `ui/components/` for shared pieces (money/date formatting, the
-  sync status chip, the branded quote/invoice letterhead, a date picker field, dropdowns).
+  `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `money`, `syncstatus`,
+  `settings`), each with a `@HiltViewModel` + a Compose screen, plus
+  `ui/navigation/OpsNavGraph.kt` wiring all of them together and `ui/components/` for shared
+  pieces (money/date formatting, the sync status chip, the branded quote/invoice letterhead, a
+  date picker field, dropdowns). `ui/expenses/ExpenseEditScreen` is one screen for create,
+  edit, and view (delete + camera/gallery receipt capture live there too), following
+  `JobDetailScreen`'s "always editable, no separate view/edit mode" spirit rather than the
+  3-screen split (list/new-edit/detail) originally sketched — see Scope notes.
 
 ## Demo script
 
@@ -79,8 +100,14 @@ Then, in the Android app (emulator or device on the same network as the backend)
 3. `thabo@thabosplumbing.co.za` / `Demo12345`.
 4. The app signs in, then the normal sync engine (WorkManager's post-write trigger fires once
    on first launch, plus the periodic heartbeat) pulls Thabo's seeded leads, customers, quotes,
-   jobs, invoices and payments down through the real `GET /api/sync/pull/` path — the same path
-   any other data uses. Pull-to-refresh on Home forces this immediately rather than waiting.
+   jobs, invoices, payments and expenses down through the real `GET /api/sync/pull/` path — the
+   same path any other data uses. Pull-to-refresh on Home forces this immediately rather than
+   waiting.
+5. Money tab → **+** → record an expense (amount, VAT toggle, category, optional job link),
+   Save, then **Take photo**/**Choose photo** to attach a receipt — the photo uploads on the
+   next sync cycle once the expense record itself has synced. Home's "Money out" tile and the
+   Money tab's Expenses section both update from the same local data immediately, offline or
+   not.
 
 `app/build.gradle.kts`'s debug `BASE_URL` is `http://10.0.2.2:8000/` — the Android emulator's
 alias for the host machine's localhost, matching `runserver 0.0.0.0:8000` above. A physical
@@ -117,27 +144,28 @@ documented constraints of this environment, not something to work around.
 ```
 $ ./gradlew :core-domain:test
 ...
-BUILD SUCCESSFUL in 12s
-4 actionable tasks: 1 executed, 3 up-to-date
+BUILD SUCCESSFUL in 25s
+4 actionable tasks: 4 executed
 ```
 
-30 tests, 30 passing, 0 failures, 0 errors — confirmed via both the console output and the
+36 tests, 36 passing, 0 failures, 0 errors — confirmed via both the console output and the
 JUnit XML result files (`core-domain/build/test-results/test/*.xml`), broken down as:
 
-| Test class            | Tests | Covers |
-|------------------------|:---:|---|
-| `MoneyTest`            |  9  | Line total rounding, VAT with/without, discount before VAT, discount > subtotal never negative, empty line items, half-up vs half-even, fractional quantities, the flat 15% rate itself |
-| `SyncDecisionTest`     |  5  | No existing row, incoming strictly newer, existing newer (conflict), equal timestamps (conflict — this is also what makes a replayed push idempotent), sub-second precision |
-| `IsoTimestampTest`     |  7  | `Z` suffix never `+00:00` (and never a raw `+` at all), zero-microsecond formatting, round-trip through format+parse, nanosecond truncation, the contract's own example value, no-fraction parsing, defensive offset-form parsing |
-| `EnumsTest`            |  9  | Every enum's wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value |
+| Test class                     | Tests | Covers |
+|---------------------------------|:---:|---|
+| `MoneyTest`                     |  9  | Line total rounding, VAT with/without, discount before VAT, discount > subtotal never negative, empty line items, half-up vs half-even, fractional quantities, the flat 15% rate itself |
+| `VatInclusiveExtractionTest`    |  5  | Clean multiples of 115 extract exactly, unclean divisions round half-up, not-VAT-applicable and zero-amount both extract R0.00 — mirrors `backend/tests/test_money.py`'s `VatInclusiveExtractionTests` case-for-case |
+| `SyncDecisionTest`              |  5  | No existing row, incoming strictly newer, existing newer (conflict), equal timestamps (conflict — this is also what makes a replayed push idempotent), sub-second precision |
+| `IsoTimestampTest`              |  7  | `Z` suffix never `+00:00` (and never a raw `+` at all), zero-microsecond formatting, round-trip through format+parse, nanosecond truncation, the contract's own example value, no-fraction parsing, defensive offset-form parsing |
+| `EnumsTest`                     | 10  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value |
 
 This is the one hard verification gate for this deliverable, and it's genuinely green — not
 asserted, run.
 
 **Written but NOT compiled or run here — the `app` module:**
 
-Every file under `app/src/main/kotlin` (99 Kotlin files: Room entities/DAOs, Retrofit
-service/DTOs, the sync engine, seven repositories, Hilt modules, and 15 Compose screens with
+Every file under `app/src/main/kotlin` (105 Kotlin files: Room entities/DAOs, Retrofit
+service/DTOs, the sync engine, eight repositories, Hilt modules, and 16 Compose screens with
 their ViewModels) was written carefully, by hand, cross-checking every field name, wire enum
 value, and endpoint path against `API_CONTRACT.md` and the actual Django serializers/models in
 `../backend/` — but **`./gradlew :app:compileDebugKotlin` was never run**, because it cannot
@@ -148,9 +176,9 @@ before it would even get to the point of missing the SDK. That is a sandbox limi
 something wrong with the `app` module's own build files, which are otherwise a normal,
 standalone AGP/Compose/Hilt setup.
 
-Two specific things were caught and fixed exactly because I went back and manually re-read the
-code for compile-plausibility (not because a compiler caught them) — worth naming so it's clear
-what "not compiled" actually risks:
+Several specific things were caught and fixed exactly because of manual re-reading and
+cross-checking (not because a compiler caught them) — worth naming so it's clear what "not
+compiled" actually risks. From the original vertical slice:
 
 - `RoomDatabase.clearAllTables()` (used on logout) asserts it isn't called on the main thread;
   the original `AuthRepository.logout()` called it directly from a `suspend fun` without
@@ -161,11 +189,25 @@ what "not compiled" actually risks:
   Compose `Image` for the not-yet-uploaded preview, reserving Coil for the String-URL case
   (an already-uploaded logo).
 
-Both are the kind of bug a real `compileDebugKotlin` (or a runtime smoke test) would have
-caught immediately, which is exactly why this section says "written, not verified" rather than
-"done" — the same class of mistake could plausibly still be sitting somewhere in the 99 files
-this sandbox couldn't compile. **Confirming the `app` module actually builds and runs needs
-Android Studio or CI with a real Android SDK** — that hasn't happened yet.
+From the Expenses milestone:
+
+- `ReceiptSyncState` was first written inside the `entities` package but imported from
+  `com.ops.app.data.local` (matching where the pre-existing `SyncState` actually lives) —
+  a straight package-path mismatch that would have failed to compile. Moved the file to match.
+- `HomeViewModel`'s 6-flow combine initially used `kotlinx.coroutines.flow.combine`'s untyped
+  vararg overload (`Array<Any?>` + unchecked casts by index) because the typed overloads only
+  go up to 5 flows — correct at runtime, but fragile (a reordered cast silently reads the wrong
+  field, with no compiler check). Rewritten as two nested 3-flow typed `combine` calls instead,
+  which is both fully type-checked and closer to this codebase's existing style elsewhere.
+- A missing `KeyboardOptions` import and one genuinely unused import
+  (`RoundedCornerShape`, drafted for a receipt-thumbnail treatment that didn't end up needed)
+  in the new `ExpenseEditScreen.kt`.
+
+All of the above are exactly the kind of thing a real `compileDebugKotlin` (or a runtime smoke
+test) would catch immediately, which is why this section says "written, not verified" rather
+than "done" — the same class of mistake could plausibly still be sitting somewhere in these 105
+files this sandbox couldn't compile. **Confirming the `app` module actually builds and runs
+needs Android Studio or CI with a real Android SDK** — that hasn't happened yet.
 
 ## Scope notes / deliberate simplifications
 
@@ -184,6 +226,23 @@ Android Studio or CI with a real Android SDK** — that hasn't happened yet.
   the demo script requiring it to log into the *already-seeded* Thabo's Plumbing account
   rather than registering a second, empty one, both make this a necessary addition, not
   scope creep — it is a second state of the same one screen, not a new one.
-- **Expenses, Suppliers, Employees/Payslips, Compliance reminders, and full Reports are not
-  built** — DISCOVERY.md section 10 explicitly scopes these to later milestones, and the task
-  brief repeats that instruction; no screens or navigation for them exist in this slice.
+- **Suppliers, Employees/Payslips, Compliance reminders, and full Reports are not built** —
+  DISCOVERY.md section 10 explicitly scopes these to later milestones; no screens or
+  navigation for them exist. Expenses (this milestone) shipped without a supplier picker for
+  the same reason: `Expense.supplier` isn't exposed via the API yet (see API_CONTRACT.md).
+- **One Expense screen, not three.** The original screen list sketched list/new-edit/detail as
+  separate screens; built instead as one `ExpenseEditScreen` (create, edit, view, delete, and
+  receipt capture all in place) plus the list folded into the Money tab's existing feed
+  pattern — matching how Job detail already works, and avoiding three near-identical screens
+  for what's a flat, single-record form with no line items or preview/send step.
+- **No live sync-status refresh while the Expense screen is open.** Its form fields are local
+  mutable state (same reason `InvoiceEditViewModel` doesn't live-observe Room — avoiding
+  Compose recomposition fighting the owner mid-type), so a receipt upload's
+  PENDING→UPLOADING→UPLOADED progression, or the record's own SYNCING→SYNCED, only refreshes
+  when the screen is re-opened. The top-bar sync chip still updates live regardless.
+- **Receipt photos are a second, separate sync phase**, not part of the JSON `changes` batch —
+  see API_CONTRACT.md's "Expense receipt attachments" and `SyncManager.syncReceipts`. A photo
+  is written to permanent app-private storage (`filesDir/receipts/`) the moment it's
+  captured/picked — before any network involvement — so it survives being attached fully
+  offline; the temp camera-capture file (`cacheDir/receipts_tmp/`, exposed to the Camera app
+  via a `FileProvider`) is a separate, disposable intermediate step.

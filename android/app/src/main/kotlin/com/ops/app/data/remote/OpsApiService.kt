@@ -3,6 +3,7 @@ package com.ops.app.data.remote
 import com.ops.app.data.remote.dto.AuthResponseDto
 import com.ops.app.data.remote.dto.BusinessDto
 import com.ops.app.data.remote.dto.BusinessPatchDto
+import com.ops.app.data.remote.dto.ExpenseFieldsDto
 import com.ops.app.data.remote.dto.LoginRequestDto
 import com.ops.app.data.remote.dto.RefreshRequestDto
 import com.ops.app.data.remote.dto.RefreshResponseDto
@@ -19,6 +20,7 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.PartMap
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
@@ -63,4 +65,17 @@ interface OpsApiService {
     /** [since] omitted for the first-ever sync (full snapshot) — see API_CONTRACT.md. */
     @GET("api/sync/pull/")
     suspend fun syncPull(@Query("since") since: String? = null): SyncPullResponseDto
+
+    /**
+     * Not part of the sync protocol — see API_CONTRACT.md's "Expense receipt
+     * attachments". 404s if [id] isn't an expense the server already has
+     * (i.e. its own JSON record hasn't synced yet); see SyncManager.syncReceipts,
+     * which only calls this once that's confirmed.
+     */
+    @Multipart
+    @POST("api/expenses/{id}/receipt/")
+    suspend fun uploadExpenseReceipt(
+        @Path("id") id: String,
+        @Part receipt: MultipartBody.Part,
+    ): ExpenseFieldsDto
 }

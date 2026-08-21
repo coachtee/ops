@@ -66,6 +66,12 @@ object OpsDestinations {
     fun recordPayment(customerId: String, invoiceId: String? = null) =
         "record_payment/$customerId/${invoiceId ?: NONE}"
 
+    /** expenseId is [NONE] when creating a new expense — one screen serves
+     * both create and edit/view, same convention as quote/invoice edit. */
+    const val EXPENSE_EDIT = "expense_edit/{expenseId}"
+    fun expenseEditNew() = "expense_edit/$NONE"
+    fun expenseEditExisting(id: String) = "expense_edit/$id"
+
     const val SYNC_STATUS = "sync_status"
     const val BUSINESS_PROFILE = "business_profile"
 

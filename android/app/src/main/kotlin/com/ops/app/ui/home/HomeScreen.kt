@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Handshake
+import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.RequestQuote
@@ -61,6 +62,7 @@ fun HomeScreen(
     onPickCustomerForQuote: () -> Unit,
     onPickCustomerForInvoice: () -> Unit,
     onPickCustomerForPayment: () -> Unit,
+    onNewExpense: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -99,7 +101,8 @@ fun HomeScreen(
             LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        StatCard("Money in this month", formatZar(uiState.moneyInThisMonth), Modifier.weight(1f))
+                        StatCard("Money in", formatZar(uiState.moneyInThisMonth), Modifier.weight(1f))
+                        StatCard("Money out", formatZar(uiState.moneyOutThisMonth), Modifier.weight(1f))
                         StatCard("Outstanding", formatZar(uiState.outstandingTotal), Modifier.weight(1f), emphasise = uiState.outstandingTotal.signum() > 0)
                     }
                 }
@@ -142,6 +145,7 @@ fun HomeScreen(
                 QuickAddRow(Icons.Filled.RequestQuote, "New quote") { showQuickAdd = false; onPickCustomerForQuote() }
                 QuickAddRow(Icons.Filled.Receipt, "New invoice") { showQuickAdd = false; onPickCustomerForInvoice() }
                 QuickAddRow(Icons.Filled.Savings, "Record payment") { showQuickAdd = false; onPickCustomerForPayment() }
+                QuickAddRow(Icons.Filled.MoneyOff, "Record expense") { showQuickAdd = false; onNewExpense() }
             }
         }
     }

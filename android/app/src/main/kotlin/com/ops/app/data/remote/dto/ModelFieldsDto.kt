@@ -158,3 +158,23 @@ data class PaymentFieldsDto(
     @SerialName("updated_at") val serverUpdatedAt: String? = null,
     @SerialName("deleted_at") val serverDeletedAt: String? = null,
 )
+
+/**
+ * `receipt_image` is read-only on the wire (never sent on push — see
+ * API_CONTRACT.md's `expense` row and its "Expense receipt attachments"
+ * addendum) — it's only ever populated when decoding a `server_record` or a
+ * pull change, from a photo uploaded via the separate multipart endpoint.
+ */
+@Serializable
+data class ExpenseFieldsDto(
+    @SerialName("job_id") val jobId: String? = null,
+    val category: String = "other",
+    val description: String = "",
+    val amount: String = "0.00",
+    @SerialName("is_vat_applicable") val isVatApplicable: Boolean = false,
+    @SerialName("vat_amount") val vatAmount: String = "0.00",
+    val date: String = "",
+    @SerialName("receipt_image") val receiptImage: String? = null,
+    @SerialName("updated_at") val serverUpdatedAt: String? = null,
+    @SerialName("deleted_at") val serverDeletedAt: String? = null,
+)

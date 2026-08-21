@@ -6,6 +6,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -16,10 +20,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ops.app.ui.components.EXPENSE_CATEGORY_CHOICES
 import com.ops.app.ui.components.EmptyState
 import com.ops.app.ui.components.INVOICE_STATUS_CHOICES
 import com.ops.app.ui.components.PAYMENT_METHOD_CHOICES
 import com.ops.app.ui.components.SectionHeader
+import com.ops.app.ui.components.SyncStateBadge
 import com.ops.app.ui.components.formatDate
 import com.ops.app.ui.components.formatZar
 import com.ops.app.ui.components.labelFor
@@ -27,11 +33,18 @@ import com.ops.app.ui.components.labelFor
 @Composable
 fun MoneyScreen(
     onOpenInvoice: (String) -> Unit,
+    onOpenExpense: (String) -> Unit,
+    onNewExpense: () -> Unit,
     viewModel: MoneyViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Money") }) }) { padding ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Money") }) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onNewExpense) { Icon(Icons.Filled.Add, contentDescription = "Record expense") }
+        },
+    ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             item { SectionHeader("Outstanding, oldest first") }
             if (uiState.outstandingInvoices.isEmpty()) {
@@ -62,6 +75,21 @@ fun MoneyScreen(
                         modifier = Modifier.fillMaxWidth().let { m ->
                             if (payment.invoiceId != null) m.clickable { onOpenInvoice(payment.invoiceId) } else m
                         },
+                    )
+                }
+            }
+
+            item { SectionHeader("Expenses") }
+            if (uiState.expenses.isEmpty()) {
+                item { EmptyState("No expenses recorded", "Tap + to record money spent on materials, fuel, and more.") }
+            } else {
+                items(uiState.expenses, key = { it.id }) { expense ->
+                    ListItem(
+                        headlineContent = { Text(expense.description.ifBlank { labelFor(EXPENSE_CATEGORY_CHOICES, expense.category) }) },
+                        supportingContent = { Text("${formatDate(expense.date)} · ${labelFor(EXPENSE_CATEGORY_CHOICES, expense.category)}") },
+                        trailingContent = { Text(formatZar(expense.amount)) },
+                        overlineContent = { SyncStateBadge(expense.syncState) },
+                        modifier = Modifier.fillMaxWidth().clickable { onOpenExpense(expense.id) },
                     )
                 }
             }

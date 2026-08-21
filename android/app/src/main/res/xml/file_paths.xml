@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only exposes the one temp directory the Camera app writes a just-captured
+  receipt photo into (see ExpenseEditScreen's TakePicture launcher) — the
+  permanent copy this app makes afterwards, under filesDir/receipts/, is
+  read directly as a local File and never needs a content:// Uri.
+-->
+<paths>
+    <cache-path name="receipts_tmp" path="receipts_tmp/" />
+</paths>

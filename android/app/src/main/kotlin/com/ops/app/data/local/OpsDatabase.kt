@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.ops.app.data.local.dao.BusinessDao
 import com.ops.app.data.local.dao.CustomerDao
+import com.ops.app.data.local.dao.ExpenseDao
 import com.ops.app.data.local.dao.InvoiceDao
 import com.ops.app.data.local.dao.InvoiceLineItemDao
 import com.ops.app.data.local.dao.JobDao
@@ -13,6 +14,7 @@ import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.entities.BusinessEntity
 import com.ops.app.data.local.entities.CustomerEntity
+import com.ops.app.data.local.entities.ExpenseEntity
 import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.InvoiceLineItemEntity
 import com.ops.app.data.local.entities.JobEntity
@@ -48,8 +50,14 @@ import com.ops.app.data.local.entities.QuoteLineItemEntity
         InvoiceEntity::class,
         InvoiceLineItemEntity::class,
         PaymentEntity::class,
+        ExpenseEntity::class,
     ],
-    version = 1,
+    // v2 added ExpenseEntity. No migration path is defined for v1 -> v2 —
+    // see DatabaseModule's fallbackToDestructiveMigration(): this app has
+    // never shipped, so there's no installed v1 data to preserve. That
+    // won't hold once this ships for real; a proper Migration is needed
+    // for any schema change after that point.
+    version = 2,
     exportSchema = false,
 )
 abstract class OpsDatabase : RoomDatabase() {
@@ -62,6 +70,7 @@ abstract class OpsDatabase : RoomDatabase() {
     abstract fun invoiceDao(): InvoiceDao
     abstract fun invoiceLineItemDao(): InvoiceLineItemDao
     abstract fun paymentDao(): PaymentDao
+    abstract fun expenseDao(): ExpenseDao
 
     companion object {
         const val DATABASE_NAME = "ops.db"

@@ -2,6 +2,7 @@ package com.ops.app.data.repository
 
 import com.ops.app.data.local.SyncState
 import com.ops.app.data.local.dao.CustomerDao
+import com.ops.app.data.local.dao.ExpenseDao
 import com.ops.app.data.local.dao.InvoiceDao
 import com.ops.app.data.local.dao.InvoiceLineItemDao
 import com.ops.app.data.local.dao.JobDao
@@ -16,12 +17,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Backs the sync status screen: every not-yet-SYNCED row across all 8
+ * Backs the sync status screen: every not-yet-SYNCED row across all 9
  * syncable models, as one flat list, with a retry action and the explicit
  * "Keep mine" / "Use theirs" conflict resolution the brief requires (see
  * DISCOVERY.md section 6 and API_CONTRACT.md's conflict handling) — each
  * dispatched to the owning aggregate repository, which is where the actual
- * Room write + re-sync trigger happens.
+ * Room write + re-sync trigger happens. Note this only covers an expense's
+ * own JSON record — a stuck receipt-photo upload is a separate state
+ * ([com.ops.app.data.local.ReceiptSyncState]) surfaced inline on the
+ * expense screen itself, not here (see ExpenseRepository.retryReceipt).
  */
 @Singleton
 class SyncStatusRepository @Inject constructor(
@@ -33,12 +37,14 @@ class SyncStatusRepository @Inject constructor(
     private val invoiceDao: InvoiceDao,
     private val invoiceLineItemDao: InvoiceLineItemDao,
     private val paymentDao: PaymentDao,
+    private val expenseDao: ExpenseDao,
     private val leadRepository: LeadRepository,
     private val customerRepository: CustomerRepository,
     private val quoteRepository: QuoteRepository,
     private val jobRepository: JobRepository,
     private val invoiceRepository: InvoiceRepository,
     private val paymentRepository: PaymentRepository,
+    private val expenseRepository: ExpenseRepository,
 ) {
     fun observeItems(): Flow<List<SyncStatusItem>> {
         val flows: List<Flow<List<SyncStatusItem>>> = listOf(
@@ -50,6 +56,7 @@ class SyncStatusRepository @Inject constructor(
             invoiceDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Invoice(it) } },
             invoiceLineItemDao.observeUnsynced().map { list -> list.map { SyncStatusItem.InvoiceLineItem(it) } },
             paymentDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Payment(it) } },
+            expenseDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Expense(it) } },
         )
         return combine(flows) { arrays -> arrays.toList().flatten().sortedBy { priority(it.syncState) } }
     }
@@ -64,6 +71,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Invoice -> invoiceRepository.retry(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.retryLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.retry(item.id)
+            is SyncStatusItem.Expense -> expenseRepository.retry(item.id)
         }
     }
 
@@ -78,6 +86,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Invoice -> invoiceRepository.keepMine(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.keepMineLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.keepMine(item.id)
+            is SyncStatusItem.Expense -> expenseRepository.keepMine(item.id)
         }
     }
 
@@ -92,6 +101,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Invoice -> invoiceRepository.useTheirs(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.useTheirsLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.useTheirs(item.id)
+            is SyncStatusItem.Expense -> expenseRepository.useTheirs(item.id)
         }
     }
 

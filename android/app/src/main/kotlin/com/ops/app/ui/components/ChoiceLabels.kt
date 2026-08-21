@@ -1,6 +1,7 @@
 package com.ops.app.ui.components
 
 import com.ops.coredomain.CustomerType
+import com.ops.coredomain.ExpenseCategory
 import com.ops.coredomain.InvoiceStatus
 import com.ops.coredomain.JobStatus
 import com.ops.coredomain.LeadSource
@@ -68,6 +69,23 @@ val PAYMENT_METHOD_CHOICES = listOf(
     PaymentMethod.CARD.wire to "Card",
     PaymentMethod.SNAPSCAN.wire to "SnapScan",
     PaymentMethod.OTHER.wire to "Other",
+)
+
+val EXPENSE_CATEGORY_CHOICES = listOf(
+    ExpenseCategory.MATERIALS_STOCK.wire to "Materials & stock",
+    ExpenseCategory.FUEL_TRAVEL.wire to "Fuel & travel",
+    ExpenseCategory.TOOLS_EQUIPMENT.wire to "Tools & equipment",
+    ExpenseCategory.RENT.wire to "Rent",
+    ExpenseCategory.UTILITIES.wire to "Utilities",
+    ExpenseCategory.INSURANCE.wire to "Insurance",
+    ExpenseCategory.BANK_CHARGES.wire to "Bank charges",
+    ExpenseCategory.PROFESSIONAL_FEES.wire to "Professional fees",
+    ExpenseCategory.MARKETING.wire to "Marketing & advertising",
+    ExpenseCategory.TELEPHONE_INTERNET.wire to "Telephone & internet",
+    ExpenseCategory.VEHICLE.wire to "Vehicle expenses",
+    ExpenseCategory.REPAIRS_MAINTENANCE.wire to "Repairs & maintenance",
+    ExpenseCategory.WAGES_SUBCONTRACTORS.wire to "Wages & subcontractors",
+    ExpenseCategory.OTHER.wire to "Other",
 )
 
 fun labelFor(choices: List<Pair<String, String>>, wireValue: String): String =

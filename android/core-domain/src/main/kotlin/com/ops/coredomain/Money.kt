@@ -53,6 +53,23 @@ object Money {
         val total = quantize(taxable.add(vatAmount))
         return DocumentTotals(subtotal = subtotal, vatAmount = vatAmount, total = total)
     }
+
+    /**
+     * Expenses run VAT the opposite direction from quotes/invoices: the
+     * owner already knows the total they paid (it's on the receipt), and
+     * this extracts the VAT portion already inside that total rather than
+     * adding VAT on top of a subtotal. Mirrors
+     * backend/common/money.py:extract_vat_from_inclusive exactly:
+     * `amount * rate / (1 + rate)`, i.e. `amount * 15/115` at the flat rate,
+     * `0.00` when the expense wasn't VAT-charged at all.
+     */
+    fun extractVatFromInclusive(inclusiveAmount: BigDecimal, isVatApplicable: Boolean): BigDecimal {
+        if (!isVatApplicable) return ZERO
+        return quantize(
+            inclusiveAmount.multiply(VAT_RATE)
+                .divide(BigDecimal.ONE.add(VAT_RATE), 10, RoundingMode.HALF_UP),
+        )
+    }
 }
 
 /** subtotal / vatAmount / total for a quote or invoice, all quantized to 2dp. */

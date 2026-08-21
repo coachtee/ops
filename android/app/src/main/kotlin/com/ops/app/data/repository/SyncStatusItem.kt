@@ -1,6 +1,7 @@
 package com.ops.app.data.repository
 
 import com.ops.app.data.local.entities.CustomerEntity
+import com.ops.app.data.local.entities.ExpenseEntity
 import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.InvoiceLineItemEntity
 import com.ops.app.data.local.entities.JobEntity
@@ -44,4 +45,7 @@ sealed class SyncStatusItem(
 
     class Payment(val entity: PaymentEntity) :
         SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Payment", "R${entity.amount}")
+
+    class Expense(val entity: ExpenseEntity) :
+        SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Expense", entity.description.ifBlank { "R${entity.amount}" })
 }

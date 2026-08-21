@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.ops.app.data.local.entities.JobEntity
 import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.repository.BusinessRepository
+import com.ops.app.data.repository.ExpenseRepository
 import com.ops.app.data.repository.InvoiceRepository
 import com.ops.app.data.repository.JobRepository
 import com.ops.app.data.repository.LeadRepository
@@ -29,6 +30,8 @@ data class HomeUiState(
     /** "Today's money in" per the brief — computed as this month's payments,
      * per DISCOVERY.md section 5's home dashboard description. */
     val moneyInThisMonth: BigDecimal = BigDecimal.ZERO,
+    /** This month's expenses — the "money out" half of the same picture. */
+    val moneyOutThisMonth: BigDecimal = BigDecimal.ZERO,
     val outstandingTotal: BigDecimal = BigDecimal.ZERO,
     val leadsNeedingFollowUp: List<LeadEntity> = emptyList(),
     val activeJobs: List<JobEntity> = emptyList(),
@@ -41,22 +44,39 @@ class HomeViewModel @Inject constructor(
     jobRepository: JobRepository,
     invoiceRepository: InvoiceRepository,
     paymentRepository: PaymentRepository,
+    expenseRepository: ExpenseRepository,
     private val syncManager: SyncManager,
 ) : ViewModel() {
 
-    val uiState: StateFlow<HomeUiState> = combine(
+    // combine() only has typed overloads up to 5 flows; nesting two keeps
+    // every value fully typed rather than falling back to the untyped
+    // vararg overload's Array<Any?> + unchecked casts.
+    private val businessLeadsJobs = combine(
         businessRepository.observe(),
         leadRepository.observeAll(),
         jobRepository.observeAll(),
+    ) { business, leads, jobs -> Triple(business, leads, jobs) }
+
+    private val invoicesPaymentsExpenses = combine(
         invoiceRepository.observeAll(),
         paymentRepository.observeAll(),
-    ) { business, leads, jobs, invoices, payments ->
+        expenseRepository.observeAll(),
+    ) { invoices, payments, expenses -> Triple(invoices, payments, expenses) }
+
+    val uiState: StateFlow<HomeUiState> = combine(
+        businessLeadsJobs,
+        invoicesPaymentsExpenses,
+    ) { (business, leads, jobs), (invoices, payments, expenses) ->
         val today = LocalDate.now()
         val thisMonth = YearMonth.now()
 
         val moneyIn = payments
             .filter { runCatching { YearMonth.from(LocalDate.parse(it.paidDate)) == thisMonth }.getOrDefault(false) }
             .fold(BigDecimal.ZERO) { acc, p -> acc.add(runCatching { BigDecimal(p.amount) }.getOrDefault(BigDecimal.ZERO)) }
+
+        val moneyOut = expenses
+            .filter { runCatching { YearMonth.from(LocalDate.parse(it.date)) == thisMonth }.getOrDefault(false) }
+            .fold(BigDecimal.ZERO) { acc, e -> acc.add(runCatching { BigDecimal(e.amount) }.getOrDefault(BigDecimal.ZERO)) }
 
         val outstandingStatuses = setOf(InvoiceStatus.SENT.wire, InvoiceStatus.PARTIALLY_PAID.wire, InvoiceStatus.OVERDUE.wire)
         val outstanding = invoices
@@ -79,6 +99,7 @@ class HomeViewModel @Inject constructor(
         HomeUiState(
             businessName = business?.name.orEmpty(),
             moneyInThisMonth = moneyIn,
+            moneyOutThisMonth = moneyOut,
             outstandingTotal = outstanding,
             leadsNeedingFollowUp = followUpDue,
             activeJobs = active,

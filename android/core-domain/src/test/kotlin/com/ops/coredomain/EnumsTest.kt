@@ -62,6 +62,18 @@ class EnumsTest {
     }
 
     @Test
+    fun `expense category wire values match finance models Expense CATEGORY_CHOICES`() {
+        assertEquals(
+            listOf(
+                "materials_stock", "fuel_travel", "tools_equipment", "rent", "utilities",
+                "insurance", "bank_charges", "professional_fees", "marketing",
+                "telephone_internet", "vehicle", "repairs_maintenance", "wages_subcontractors", "other",
+            ),
+            ExpenseCategory.entries.map { it.wire },
+        )
+    }
+
+    @Test
     fun `fromWire round trips every enum value`() {
         LeadSource.entries.forEach { assertEquals(it, LeadSource.fromWire(it.wire)) }
         LeadStatus.entries.forEach { assertEquals(it, LeadStatus.fromWire(it.wire)) }
@@ -70,6 +82,7 @@ class EnumsTest {
         JobStatus.entries.forEach { assertEquals(it, JobStatus.fromWire(it.wire)) }
         InvoiceStatus.entries.forEach { assertEquals(it, InvoiceStatus.fromWire(it.wire)) }
         PaymentMethod.entries.forEach { assertEquals(it, PaymentMethod.fromWire(it.wire)) }
+        ExpenseCategory.entries.forEach { assertEquals(it, ExpenseCategory.fromWire(it.wire)) }
     }
 
     @Test

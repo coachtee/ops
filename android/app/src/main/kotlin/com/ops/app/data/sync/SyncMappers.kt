@@ -1,7 +1,9 @@
 package com.ops.app.data.sync
 
+import com.ops.app.data.local.ReceiptSyncState
 import com.ops.app.data.local.SyncState
 import com.ops.app.data.local.entities.CustomerEntity
+import com.ops.app.data.local.entities.ExpenseEntity
 import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.InvoiceLineItemEntity
 import com.ops.app.data.local.entities.JobEntity
@@ -10,6 +12,7 @@ import com.ops.app.data.local.entities.PaymentEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.remote.dto.CustomerFieldsDto
+import com.ops.app.data.remote.dto.ExpenseFieldsDto
 import com.ops.app.data.remote.dto.InvoiceFieldsDto
 import com.ops.app.data.remote.dto.InvoiceLineItemFieldsDto
 import com.ops.app.data.remote.dto.JobFieldsDto
@@ -420,6 +423,65 @@ fun PaymentFieldsDto.toEntity(
     reference = reference,
     paidDate = paidDate,
     notes = notes,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    syncState = syncState,
+    syncError = syncError,
+    conflictServerJson = conflictServerJson,
+)
+
+// ---- Expense -------------------------------------------------------------------
+
+fun ExpenseEntity.toFieldsDto() = ExpenseFieldsDto(
+    jobId = jobId,
+    category = category,
+    description = description,
+    amount = amount,
+    isVatApplicable = isVatApplicable,
+    vatAmount = vatAmount,
+    date = date,
+    // receiptImage is read-only on the wire — never sent, see API_CONTRACT.md.
+)
+
+fun ExpenseEntity.toSyncChange(json: Json) = SyncChangeDto(
+    model = SyncModelKeys.EXPENSE,
+    id = id,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    fields = json.encodeToJsonElement(toFieldsDto()),
+)
+
+/**
+ * Unlike every other `toEntity`, this one takes the [existing] local row (if
+ * any) so the receipt-upload phase's local-only state
+ * (localReceiptPath/receiptSyncState/receiptSyncError — see
+ * ExpenseEntity's doc comment) survives being overwritten by wire data,
+ * which knows nothing about it. `receiptImage` from the wire becomes the
+ * new [ExpenseEntity.receiptUrl] and — since its presence means a photo is
+ * now confirmed uploaded (from this device or another) — also resolves any
+ * pending/failed local receipt-sync state to UPLOADED.
+ */
+fun ExpenseFieldsDto.toEntity(
+    id: String,
+    updatedAt: String,
+    deletedAt: String?,
+    syncState: String,
+    syncError: String? = null,
+    conflictServerJson: String? = null,
+    existing: ExpenseEntity? = null,
+) = ExpenseEntity(
+    id = id,
+    jobId = jobId,
+    category = category,
+    description = description,
+    amount = amount,
+    isVatApplicable = isVatApplicable,
+    vatAmount = vatAmount,
+    date = date,
+    receiptUrl = receiptImage ?: existing?.receiptUrl,
+    localReceiptPath = existing?.localReceiptPath,
+    receiptSyncState = if (receiptImage != null) ReceiptSyncState.UPLOADED else existing?.receiptSyncState ?: ReceiptSyncState.NONE,
+    receiptSyncError = if (receiptImage != null) null else existing?.receiptSyncError,
     updatedAt = updatedAt,
     deletedAt = deletedAt,
     syncState = syncState,

@@ -11,6 +11,7 @@ import com.ops.app.ui.businesssetup.BusinessSetupScreen
 import com.ops.app.ui.customers.CustomerDetailScreen
 import com.ops.app.ui.customers.CustomerListScreen
 import com.ops.app.ui.customers.NewCustomerScreen
+import com.ops.app.ui.expenses.ExpenseEditScreen
 import com.ops.app.ui.home.HomeScreen
 import com.ops.app.ui.invoices.InvoiceEditScreen
 import com.ops.app.ui.invoices.InvoicePreviewScreen
@@ -73,6 +74,7 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
                 onPickCustomerForQuote = { navController.navigate(OpsDestinations.customers("quote")) },
                 onPickCustomerForInvoice = { navController.navigate(OpsDestinations.customers("invoice")) },
                 onPickCustomerForPayment = { navController.navigate(OpsDestinations.customers("payment")) },
+                onNewExpense = { navController.navigate(OpsDestinations.expenseEditNew()) },
             )
         }
 
@@ -236,7 +238,18 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
         }
 
         composable(OpsDestinations.MONEY) {
-            MoneyScreen(onOpenInvoice = { navController.navigate(OpsDestinations.invoicePreview(it)) })
+            MoneyScreen(
+                onOpenInvoice = { navController.navigate(OpsDestinations.invoicePreview(it)) },
+                onOpenExpense = { navController.navigate(OpsDestinations.expenseEditExisting(it)) },
+                onNewExpense = { navController.navigate(OpsDestinations.expenseEditNew()) },
+            )
+        }
+
+        composable(
+            route = OpsDestinations.EXPENSE_EDIT,
+            arguments = listOf(navArgument("expenseId") { type = NavType.StringType }),
+        ) {
+            ExpenseEditScreen(onBack = { navController.popBackStack() })
         }
 
         composable(OpsDestinations.SYNC_STATUS) {
