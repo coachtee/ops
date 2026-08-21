@@ -1,6 +1,7 @@
 package com.ops.app.data.repository
 
 import com.ops.app.data.local.SyncState
+import com.ops.app.data.local.dao.ComplianceItemDao
 import com.ops.app.data.local.dao.CustomerDao
 import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
@@ -20,7 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Backs the sync status screen: every not-yet-SYNCED row across all 12
+ * Backs the sync status screen: every not-yet-SYNCED row across all 13
  * syncable models, as one flat list, with a retry action and the explicit
  * "Keep mine" / "Use theirs" conflict resolution the brief requires (see
  * DISCOVERY.md section 6 and API_CONTRACT.md's conflict handling) — each
@@ -44,6 +45,7 @@ class SyncStatusRepository @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val employeeDao: EmployeeDao,
     private val payslipDao: PayslipDao,
+    private val complianceItemDao: ComplianceItemDao,
     private val leadRepository: LeadRepository,
     private val customerRepository: CustomerRepository,
     private val quoteRepository: QuoteRepository,
@@ -54,6 +56,7 @@ class SyncStatusRepository @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val employeeRepository: EmployeeRepository,
     private val payslipRepository: PayslipRepository,
+    private val complianceItemRepository: ComplianceItemRepository,
 ) {
     fun observeItems(): Flow<List<SyncStatusItem>> {
         val flows: List<Flow<List<SyncStatusItem>>> = listOf(
@@ -69,6 +72,7 @@ class SyncStatusRepository @Inject constructor(
             expenseDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Expense(it) } },
             employeeDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Employee(it) } },
             payslipDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Payslip(it) } },
+            complianceItemDao.observeUnsynced().map { list -> list.map { SyncStatusItem.ComplianceItem(it) } },
         )
         return combine(flows) { arrays -> arrays.toList().flatten().sortedBy { priority(it.syncState) } }
     }
@@ -87,6 +91,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Expense -> expenseRepository.retry(item.id)
             is SyncStatusItem.Employee -> employeeRepository.retry(item.id)
             is SyncStatusItem.Payslip -> payslipRepository.retry(item.id)
+            is SyncStatusItem.ComplianceItem -> complianceItemRepository.retry(item.id)
         }
     }
 
@@ -105,6 +110,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Expense -> expenseRepository.keepMine(item.id)
             is SyncStatusItem.Employee -> employeeRepository.keepMine(item.id)
             is SyncStatusItem.Payslip -> payslipRepository.keepMine(item.id)
+            is SyncStatusItem.ComplianceItem -> complianceItemRepository.keepMine(item.id)
         }
     }
 
@@ -123,6 +129,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Expense -> expenseRepository.useTheirs(item.id)
             is SyncStatusItem.Employee -> employeeRepository.useTheirs(item.id)
             is SyncStatusItem.Payslip -> payslipRepository.useTheirs(item.id)
+            is SyncStatusItem.ComplianceItem -> complianceItemRepository.useTheirs(item.id)
         }
     }
 

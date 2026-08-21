@@ -98,6 +98,16 @@ object OpsDestinations {
     fun payslipEditNew(employeeId: String) = "payslip_edit/$employeeId/$NONE"
     fun payslipEditExisting(employeeId: String, payslipId: String) = "payslip_edit/$employeeId/$payslipId"
 
+    /** Compliance list — reached from Business Profile/Settings, same as
+     * Employees, not a bottom nav item of its own (see BusinessProfileScreen). */
+    const val COMPLIANCE = "compliance"
+
+    /** complianceItemId is [NONE] when creating a new item — one screen serves
+     * both create and edit/view, same convention as supplier/employee edit. */
+    const val COMPLIANCE_ITEM_EDIT = "compliance_item_edit/{complianceItemId}"
+    fun complianceItemEditNew() = "compliance_item_edit/$NONE"
+    fun complianceItemEditExisting(id: String) = "compliance_item_edit/$id"
+
     const val SYNC_STATUS = "sync_status"
     const val BUSINESS_PROFILE = "business_profile"
 

@@ -2,6 +2,7 @@ package com.ops.app.data.sync
 
 import com.ops.app.data.local.ReceiptSyncState
 import com.ops.app.data.local.SyncState
+import com.ops.app.data.local.entities.ComplianceItemEntity
 import com.ops.app.data.local.entities.CustomerEntity
 import com.ops.app.data.local.entities.EmployeeEntity
 import com.ops.app.data.local.entities.ExpenseEntity
@@ -14,6 +15,7 @@ import com.ops.app.data.local.entities.PayslipEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.local.entities.SupplierEntity
+import com.ops.app.data.remote.dto.ComplianceItemFieldsDto
 import com.ops.app.data.remote.dto.CustomerFieldsDto
 import com.ops.app.data.remote.dto.EmployeeFieldsDto
 import com.ops.app.data.remote.dto.ExpenseFieldsDto
@@ -620,6 +622,47 @@ fun PayslipFieldsDto.toEntity(
     deductionsNote = deductionsNote,
     netPay = netPay,
     paidDate = paidDate,
+    notes = notes,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    syncState = syncState,
+    syncError = syncError,
+    conflictServerJson = conflictServerJson,
+)
+
+// ---- ComplianceItem ------------------------------------------------------
+
+fun ComplianceItemEntity.toFieldsDto() = ComplianceItemFieldsDto(
+    category = category,
+    title = title,
+    dueDate = dueDate,
+    completedDate = completedDate,
+    isRecurring = isRecurring,
+    notes = notes,
+)
+
+fun ComplianceItemEntity.toSyncChange(json: Json) = SyncChangeDto(
+    model = SyncModelKeys.COMPLIANCE_ITEM,
+    id = id,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    fields = json.encodeToJsonElement(toFieldsDto()),
+)
+
+fun ComplianceItemFieldsDto.toEntity(
+    id: String,
+    updatedAt: String,
+    deletedAt: String?,
+    syncState: String,
+    syncError: String? = null,
+    conflictServerJson: String? = null,
+) = ComplianceItemEntity(
+    id = id,
+    category = category,
+    title = title,
+    dueDate = dueDate,
+    completedDate = completedDate,
+    isRecurring = isRecurring,
     notes = notes,
     updatedAt = updatedAt,
     deletedAt = deletedAt,

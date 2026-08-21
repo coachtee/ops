@@ -11,6 +11,7 @@ package com.ops.coredomain
  *   - JobStatus                   -> backend/work/models.py (Job)
  *   - InvoiceStatus / PaymentMethod / ExpenseCategory -> backend/finance/models.py
  *   - PayRateType                 -> backend/people/models.py (Employee)
+ *   - ComplianceCategory          -> backend/compliance/models.py (ComplianceItem)
  *
  * Each enum carries its own [wire] value rather than relying on `name`, so a
  * future Kotlin-side rename never silently breaks the network contract, and
@@ -147,5 +148,18 @@ enum class PayRateType(override val wire: String) : WireEnum {
 
     companion object {
         fun fromWire(wire: String): PayRateType = requireWire(entries.toTypedArray(), wire, "PayRateType")
+    }
+}
+
+enum class ComplianceCategory(override val wire: String) : WireEnum {
+    VAT_RETURN("vat_return"),
+    PAYE_UIF_SDL("paye_uif_sdl"),
+    PROVISIONAL_TAX("provisional_tax"),
+    CIPC_ANNUAL_RETURN("cipc_annual_return"),
+    OTHER("other"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): ComplianceCategory = requireWire(entries.toTypedArray(), wire, "ComplianceCategory")
     }
 }

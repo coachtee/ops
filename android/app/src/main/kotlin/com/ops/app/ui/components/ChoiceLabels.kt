@@ -1,5 +1,6 @@
 package com.ops.app.ui.components
 
+import com.ops.coredomain.ComplianceCategory
 import com.ops.coredomain.CustomerType
 import com.ops.coredomain.ExpenseCategory
 import com.ops.coredomain.InvoiceStatus
@@ -93,6 +94,14 @@ val PAY_RATE_TYPE_CHOICES = listOf(
     PayRateType.HOURLY.wire to "Hourly",
     PayRateType.DAILY.wire to "Daily",
     PayRateType.MONTHLY.wire to "Monthly",
+)
+
+val COMPLIANCE_CATEGORY_CHOICES = listOf(
+    ComplianceCategory.VAT_RETURN.wire to "VAT return",
+    ComplianceCategory.PAYE_UIF_SDL.wire to "PAYE / UIF / SDL",
+    ComplianceCategory.PROVISIONAL_TAX.wire to "Provisional tax",
+    ComplianceCategory.CIPC_ANNUAL_RETURN.wire to "CIPC annual return",
+    ComplianceCategory.OTHER.wire to "Other",
 )
 
 fun labelFor(choices: List<Pair<String, String>>, wireValue: String): String =

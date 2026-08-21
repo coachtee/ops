@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.ops.app.data.local.OpsDatabase
 import com.ops.app.data.local.dao.BusinessDao
+import com.ops.app.data.local.dao.ComplianceItemDao
 import com.ops.app.data.local.dao.CustomerDao
 import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
@@ -72,4 +73,7 @@ object DatabaseModule {
 
     @Provides
     fun providePayslipDao(db: OpsDatabase): PayslipDao = db.payslipDao()
+
+    @Provides
+    fun provideComplianceItemDao(db: OpsDatabase): ComplianceItemDao = db.complianceItemDao()
 }

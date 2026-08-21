@@ -8,6 +8,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ops.app.ui.businesssetup.BusinessSetupScreen
+import com.ops.app.ui.compliance.ComplianceEditScreen
+import com.ops.app.ui.compliance.ComplianceListScreen
 import com.ops.app.ui.customers.CustomerDetailScreen
 import com.ops.app.ui.customers.CustomerListScreen
 import com.ops.app.ui.customers.NewCustomerScreen
@@ -313,6 +315,21 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
             PayslipEditScreen(onBack = { navController.popBackStack() })
         }
 
+        composable(OpsDestinations.COMPLIANCE) {
+            ComplianceListScreen(
+                onBack = { navController.popBackStack() },
+                onOpenItem = { navController.navigate(OpsDestinations.complianceItemEditExisting(it)) },
+                onNewItem = { navController.navigate(OpsDestinations.complianceItemEditNew()) },
+            )
+        }
+
+        composable(
+            route = OpsDestinations.COMPLIANCE_ITEM_EDIT,
+            arguments = listOf(navArgument("complianceItemId") { type = NavType.StringType }),
+        ) {
+            ComplianceEditScreen(onBack = { navController.popBackStack() })
+        }
+
         composable(OpsDestinations.SYNC_STATUS) {
             SyncStatusScreen(onBack = { navController.popBackStack() })
         }
@@ -321,6 +338,7 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
             BusinessProfileScreen(
                 onBack = { navController.popBackStack() },
                 onOpenEmployees = { navController.navigate(OpsDestinations.EMPLOYEES) },
+                onOpenCompliance = { navController.navigate(OpsDestinations.COMPLIANCE) },
                 onLoggedOut = {
                     navController.navigate(OpsDestinations.BUSINESS_SETUP) {
                         popUpTo(0) { inclusive = true }

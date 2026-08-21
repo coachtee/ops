@@ -75,6 +75,7 @@ private data class EditableBusiness(
 fun BusinessProfileScreen(
     onBack: () -> Unit,
     onOpenEmployees: () -> Unit,
+    onOpenCompliance: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: BusinessProfileViewModel = hiltViewModel(),
 ) {
@@ -207,6 +208,11 @@ fun BusinessProfileScreen(
                 onClick = onOpenEmployees,
                 modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
             ) { Text("Manage employees") }
+
+            OutlinedButton(
+                onClick = onOpenCompliance,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            ) { Text("Compliance reminders") }
 
             OutlinedButton(
                 onClick = { showLogoutConfirm = true },

@@ -79,6 +79,14 @@ class EnumsTest {
     }
 
     @Test
+    fun `compliance category wire values match compliance models ComplianceItem CATEGORY_CHOICES`() {
+        assertEquals(
+            listOf("vat_return", "paye_uif_sdl", "provisional_tax", "cipc_annual_return", "other"),
+            ComplianceCategory.entries.map { it.wire },
+        )
+    }
+
+    @Test
     fun `fromWire round trips every enum value`() {
         LeadSource.entries.forEach { assertEquals(it, LeadSource.fromWire(it.wire)) }
         LeadStatus.entries.forEach { assertEquals(it, LeadStatus.fromWire(it.wire)) }
@@ -89,6 +97,7 @@ class EnumsTest {
         PaymentMethod.entries.forEach { assertEquals(it, PaymentMethod.fromWire(it.wire)) }
         ExpenseCategory.entries.forEach { assertEquals(it, ExpenseCategory.fromWire(it.wire)) }
         PayRateType.entries.forEach { assertEquals(it, PayRateType.fromWire(it.wire)) }
+        ComplianceCategory.entries.forEach { assertEquals(it, ComplianceCategory.fromWire(it.wire)) }
     }
 
     @Test

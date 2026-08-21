@@ -1,5 +1,6 @@
 package com.ops.app.data.repository
 
+import com.ops.app.data.local.entities.ComplianceItemEntity
 import com.ops.app.data.local.entities.CustomerEntity
 import com.ops.app.data.local.entities.EmployeeEntity
 import com.ops.app.data.local.entities.ExpenseEntity
@@ -60,4 +61,7 @@ sealed class SyncStatusItem(
 
     class Payslip(val entity: PayslipEntity) :
         SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Payslip", "${entity.periodStart} – ${entity.periodEnd}")
+
+    class ComplianceItem(val entity: ComplianceItemEntity) :
+        SyncStatusItem(entity.id, entity.syncState, entity.syncError, "Compliance", entity.title)
 }

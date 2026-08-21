@@ -1,6 +1,6 @@
 package com.ops.app.data.sync
 
-/** The twelve `model` wire keys from API_CONTRACT.md's "Sync" section, verbatim. */
+/** The thirteen `model` wire keys from API_CONTRACT.md's "Sync" section, verbatim. */
 object SyncModelKeys {
     const val LEAD = "lead"
     const val CUSTOMER = "customer"
@@ -14,4 +14,5 @@ object SyncModelKeys {
     const val EXPENSE = "expense"
     const val EMPLOYEE = "employee"
     const val PAYSLIP = "payslip"
+    const val COMPLIANCE_ITEM = "compliance_item"
 }

@@ -229,3 +229,17 @@ data class PayslipFieldsDto(
     @SerialName("updated_at") val serverUpdatedAt: String? = null,
     @SerialName("deleted_at") val serverDeletedAt: String? = null,
 )
+
+/** A plain owner-managed deadline checklist entry — see ComplianceItem's
+ * model doc comment. Nothing here files or submits anything to SARS/CIPC. */
+@Serializable
+data class ComplianceItemFieldsDto(
+    val category: String = "other",
+    val title: String = "",
+    @SerialName("due_date") val dueDate: String = "",
+    @SerialName("completed_date") val completedDate: String? = null,
+    @SerialName("is_recurring") val isRecurring: Boolean = true,
+    val notes: String = "",
+    @SerialName("updated_at") val serverUpdatedAt: String? = null,
+    @SerialName("deleted_at") val serverDeletedAt: String? = null,
+)

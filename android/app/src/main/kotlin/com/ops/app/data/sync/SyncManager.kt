@@ -4,6 +4,7 @@ import com.ops.app.data.datastore.AuthPreferences
 import com.ops.app.data.local.ReceiptSyncState
 import com.ops.app.data.local.SyncState
 import com.ops.app.data.local.SyncableRecord
+import com.ops.app.data.local.dao.ComplianceItemDao
 import com.ops.app.data.local.dao.CustomerDao
 import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
@@ -17,6 +18,7 @@ import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
 import com.ops.app.data.remote.OpsApiService
+import com.ops.app.data.remote.dto.ComplianceItemFieldsDto
 import com.ops.app.data.remote.dto.CustomerFieldsDto
 import com.ops.app.data.remote.dto.EmployeeFieldsDto
 import com.ops.app.data.remote.dto.ExpenseFieldsDto
@@ -68,7 +70,7 @@ sealed interface SyncOutcome {
  * called from a coroutine/WorkManager worker the UI merely observes via
  * [observeChipState] / each screen's Room [Flow]s):
  *
- *  1. Gather every PENDING/FAILED row across all 12 syncable DAOs into ONE
+ *  1. Gather every PENDING/FAILED row across all 13 syncable DAOs into ONE
  *     `POST /api/sync/push/` batch (any order — the server applies a fixed
  *     dependency order within the batch, see API_CONTRACT.md).
  *  2. Mark them SYNCING first. Per result: `accepted` -> overwrite local
@@ -113,6 +115,7 @@ class SyncManager @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val employeeDao: EmployeeDao,
     private val payslipDao: PayslipDao,
+    private val complianceItemDao: ComplianceItemDao,
     private val apiService: OpsApiService,
     private val authPreferences: AuthPreferences,
     private val json: Json,
@@ -121,7 +124,7 @@ class SyncManager @Inject constructor(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
-    /** Every syncable row not yet cleanly SYNCED, across all 12 models — feeds
+    /** Every syncable row not yet cleanly SYNCED, across all 13 models — feeds
      * the top-bar chip. The sync status screen instead combines the typed
      * per-model DAO flows directly (via SyncStatusRepository) so it can show
      * per-record labels, not just counts. */
@@ -138,6 +141,7 @@ class SyncManager @Inject constructor(
         expenseDao.observeUnsynced(),
         employeeDao.observeUnsynced(),
         payslipDao.observeUnsynced(),
+        complianceItemDao.observeUnsynced(),
     )
 
     fun observeChipState(): Flow<SyncChipState> =
@@ -184,10 +188,12 @@ class SyncManager @Inject constructor(
         val expenseOutbox = expenseDao.getOutbox()
         val employeeOutbox = employeeDao.getOutbox()
         val payslipOutbox = payslipDao.getOutbox()
+        val complianceItemOutbox = complianceItemDao.getOutbox()
 
         val total = leadOutbox.size + customerOutbox.size + quoteOutbox.size + quoteLineItemOutbox.size +
             jobOutbox.size + invoiceOutbox.size + invoiceLineItemOutbox.size + paymentOutbox.size +
-            supplierOutbox.size + expenseOutbox.size + employeeOutbox.size + payslipOutbox.size
+            supplierOutbox.size + expenseOutbox.size + employeeOutbox.size + payslipOutbox.size +
+            complianceItemOutbox.size
         if (total == 0) return
 
         leadOutbox.forEach { leadDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
@@ -202,6 +208,7 @@ class SyncManager @Inject constructor(
         expenseOutbox.forEach { expenseDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
         employeeOutbox.forEach { employeeDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
         payslipOutbox.forEach { payslipDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
+        complianceItemOutbox.forEach { complianceItemDao.upsert(it.copy(syncState = SyncState.SYNCING)) }
 
         val changes: List<SyncChangeDto> = buildList {
             leadOutbox.forEach { add(it.toSyncChange(json)) }
@@ -216,6 +223,7 @@ class SyncManager @Inject constructor(
             expenseOutbox.forEach { add(it.toSyncChange(json)) }
             employeeOutbox.forEach { add(it.toSyncChange(json)) }
             payslipOutbox.forEach { add(it.toSyncChange(json)) }
+            complianceItemOutbox.forEach { add(it.toSyncChange(json)) }
         }
 
         val response = try {
@@ -237,6 +245,7 @@ class SyncManager @Inject constructor(
             expenseOutbox.forEach { expenseDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             employeeOutbox.forEach { employeeDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             payslipOutbox.forEach { payslipDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
+            complianceItemOutbox.forEach { complianceItemDao.upsert(it.copy(syncState = SyncState.FAILED, syncError = message)) }
             throw e
         }
 
@@ -352,6 +361,15 @@ class SyncManager @Inject constructor(
                     else -> payslipDao.upsert(existing.copy(syncState = SyncState.FAILED, syncError = result.errors.toSyncErrorMessage()))
                 }
             }
+
+            SyncModelKeys.COMPLIANCE_ITEM -> complianceItemDao.getById(result.id)?.let { existing ->
+                when (result.status) {
+                    "accepted" -> result.serverRecord?.let { json.decodeFromJsonElement<ComplianceItemFieldsDto>(it) }
+                        ?.let { dto -> complianceItemDao.upsert(dto.toEntity(result.id, dto.serverUpdatedAt ?: existing.updatedAt, dto.serverDeletedAt, SyncState.SYNCED)) }
+                    "conflict" -> complianceItemDao.upsert(existing.copy(syncState = SyncState.CONFLICT, syncError = null, conflictServerJson = result.serverRecord?.toString()))
+                    else -> complianceItemDao.upsert(existing.copy(syncState = SyncState.FAILED, syncError = result.errors.toSyncErrorMessage()))
+                }
+            }
         }
     }
 
@@ -431,6 +449,11 @@ class SyncManager @Inject constructor(
                 json.decodeFromJsonElement<PayslipFieldsDto>(change.fields)
                     .toEntity(change.id, change.updatedAt, change.deletedAt, SyncState.SYNCED)
             }?.let { payslipDao.upsert(it) }
+
+            SyncModelKeys.COMPLIANCE_ITEM -> applyPull(complianceItemDao.getById(change.id), incomingUpdatedAt) {
+                json.decodeFromJsonElement<ComplianceItemFieldsDto>(change.fields)
+                    .toEntity(change.id, change.updatedAt, change.deletedAt, SyncState.SYNCED)
+            }?.let { complianceItemDao.upsert(it) }
         }
     }
 

@@ -3,6 +3,7 @@ package com.ops.app.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.ops.app.data.local.dao.BusinessDao
+import com.ops.app.data.local.dao.ComplianceItemDao
 import com.ops.app.data.local.dao.CustomerDao
 import com.ops.app.data.local.dao.EmployeeDao
 import com.ops.app.data.local.dao.ExpenseDao
@@ -16,6 +17,7 @@ import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
 import com.ops.app.data.local.entities.BusinessEntity
+import com.ops.app.data.local.entities.ComplianceItemEntity
 import com.ops.app.data.local.entities.CustomerEntity
 import com.ops.app.data.local.entities.EmployeeEntity
 import com.ops.app.data.local.entities.ExpenseEntity
@@ -60,14 +62,16 @@ import com.ops.app.data.local.entities.SupplierEntity
         SupplierEntity::class,
         EmployeeEntity::class,
         PayslipEntity::class,
+        ComplianceItemEntity::class,
     ],
     // v2 added ExpenseEntity; v3 added SupplierEntity + ExpenseEntity.supplierId;
-    // v4 added EmployeeEntity + PayslipEntity. No migration path is defined
-    // for any of these — see DatabaseModule's fallbackToDestructiveMigration():
-    // this app has never shipped, so there's no installed data to preserve.
-    // That won't hold once this ships for real; a proper Migration is
-    // needed for any schema change after that point.
-    version = 4,
+    // v4 added EmployeeEntity + PayslipEntity; v5 added ComplianceItemEntity.
+    // No migration path is defined for any of these — see DatabaseModule's
+    // fallbackToDestructiveMigration(): this app has never shipped, so
+    // there's no installed data to preserve. That won't hold once this
+    // ships for real; a proper Migration is needed for any schema change
+    // after that point.
+    version = 5,
     exportSchema = false,
 )
 abstract class OpsDatabase : RoomDatabase() {
@@ -84,6 +88,7 @@ abstract class OpsDatabase : RoomDatabase() {
     abstract fun supplierDao(): SupplierDao
     abstract fun employeeDao(): EmployeeDao
     abstract fun payslipDao(): PayslipDao
+    abstract fun complianceItemDao(): ComplianceItemDao
 
     companion object {
         const val DATABASE_NAME = "ops.db"

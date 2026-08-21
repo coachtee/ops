@@ -7,11 +7,13 @@ module implements the V1 vertical slice — business setup, leads, customers, qu
 invoices, payments, the home dashboard, and offline sync — plus the Expenses milestone
 (capture, receipt photo attachment, VAT-inclusive extraction, categories, optional job/project
 link), the Suppliers milestone (a simple contact record — who the business buys from — linked
-from Expense.supplier_id), and the Employees & Payslips milestone that followed it (a staff
-contact + agreed pay rate, and one pay period's gross/deductions/computed-net-pay per
-employee — deliberately no shift tracking, no leave management, no PAYE/UIF tax-table
-computation). See DISCOVERY.md section 10 for what's still deliberately deferred (Compliance,
-full Reports).
+from Expense.supplier_id), the Employees & Payslips milestone (a staff contact + agreed pay
+rate, and one pay period's gross/deductions/computed-net-pay per employee — deliberately no
+shift tracking, no leave management, no PAYE/UIF tax-table computation), and the Compliance
+milestone that followed it (a plain owner-managed deadline checklist — VAT return, PAYE/UIF/
+SDL, provisional tax, CIPC annual return, or anything else the owner adds — with a due date, a
+tick-off, and an on-screen reminder every time that nothing here files with SARS or CIPC). See
+DISCOVERY.md section 10 for what's still deliberately deferred (full Reports).
 
 ## Module layout
 
@@ -56,11 +58,13 @@ android/
   contact person, phone, email, notes — not a vendor-management module. `EmployeeEntity`
   (v4) is the same idea for staff — name, role, contact details, agreed pay rate — and
   `PayslipEntity` (v4) carries `netPay` always derived from `grossPay - deductions` (never
-  hand-entered), same pattern as `ExpenseEntity.vatAmount`. Schema history: `v2` added
-  `ExpenseEntity`; `v3` added `SupplierEntity` and `ExpenseEntity.supplierId`; `v4` added
-  `EmployeeEntity` and `PayslipEntity`. None of these has a migration path from the version
-  before it — `fallbackToDestructiveMigration()` — since this app has never shipped; that
-  stops being acceptable once it does.
+  hand-entered), same pattern as `ExpenseEntity.vatAmount`. `ComplianceItemEntity` (v5) is a
+  plain deadline row (category, title, dueDate, completedDate, isRecurring, notes) — no
+  relations to any other entity. Schema history: `v2` added `ExpenseEntity`; `v3` added
+  `SupplierEntity` and `ExpenseEntity.supplierId`; `v4` added `EmployeeEntity` and
+  `PayslipEntity`; `v5` added `ComplianceItemEntity`. None of these has a migration path from
+  the version before it — `fallbackToDestructiveMigration()` — since this app has never
+  shipped; that stops being acceptable once it does.
 - `data/remote/` — Retrofit `OpsApiService` (every endpoint in API_CONTRACT.md, including the
   multipart `POST /api/expenses/{id}/receipt/`), kotlinx.serialization DTOs,
   `AuthHeaderInterceptor` + `TokenAuthenticator` (401 → refresh once → retry).
@@ -72,20 +76,21 @@ android/
   per-record and never fails the overall sync outcome. Plus `SyncWorker` (WorkManager, ~15 min
   periodic heartbeat + expedited one-time trigger after local writes).
 - `data/repository/` — one repository per aggregate (Lead, Customer, Quote+line items,
-  Job, Invoice+line items, Payment, Supplier, Expense, Employee, Payslip, Business, Auth) plus
-  `SyncStatusRepository` for the sync status screen's cross-model view.
+  Job, Invoice+line items, Payment, Supplier, Expense, Employee, Payslip, ComplianceItem,
+  Business, Auth) plus `SyncStatusRepository` for the sync status screen's cross-model view.
   `ExpenseRepository.attachReceipt`/`retryReceipt` manage the receipt state machine;
-  `save`/`delete` are the usual PENDING-then-sync pattern, same for `SupplierRepository` and
-  `EmployeeRepository`. `PayslipRepository.save` computes `netPay` locally via the new
-  `Money.computeNetPay` (core-domain) before writing, same instant-offline-UI reasoning as
-  `ExpenseRepository.save`'s VAT extraction.
+  `save`/`delete` are the usual PENDING-then-sync pattern, same for `SupplierRepository`,
+  `EmployeeRepository`, and `ComplianceItemRepository`. `PayslipRepository.save` computes
+  `netPay` locally via the new `Money.computeNetPay` (core-domain) before writing, same
+  instant-offline-UI reasoning as `ExpenseRepository.save`'s VAT extraction.
 - `di/` — Hilt modules for Room, Retrofit/OkHttp, WorkManager. `AuthPreferences`
   (DataStore-backed) and every repository are constructor-injected directly (`@Inject
   constructor`), which is itself Hilt DI — no separate binding module is needed for concrete
   classes with no interface to bind against.
 - `ui/` — one package per screen area (`splash`, `businesssetup`, `home`, `leads`,
   `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `suppliers`, `employees`,
-  `money`, `syncstatus`, `settings`), each with a `@HiltViewModel` + a Compose screen, plus
+  `compliance`, `money`, `syncstatus`, `settings`), each with a `@HiltViewModel` + a Compose
+  screen, plus
   `ui/navigation/OpsNavGraph.kt` wiring all of them together and `ui/components/` for shared
   pieces (money/date formatting, the sync status chip, the branded quote/invoice letterhead, a
   date picker field, dropdowns). `ui/expenses/ExpenseEditScreen` is one screen for create,
@@ -105,6 +110,13 @@ android/
   invoices. `PayslipEditScreen` is its own single create/edit/view/delete screen (period dates,
   gross pay, deductions, a live computed net-pay line, "mark as paid today", and a plain-text
   "Share payslip" action via `Intent.ACTION_SEND` — no PDF, same as quote/invoice "Send").
+  `ui/compliance/ComplianceEditScreen` is the same pattern again (category, title, due date, a
+  "Repeats" toggle, mark-done), with one addition: marking a recurring item done offers an
+  "Add the next reminder?" dialog pre-filled at a category-typical interval (computed purely
+  client-side, see `ComplianceEditViewModel`'s `suggestedNextItem`) — the owner must tap "Add"
+  for it to actually be created, nothing happens automatically. `ComplianceListScreen`, like
+  `EmployeeListScreen`, is reached from Business Profile/Settings; both screens carry the
+  on-screen reminder that OPS tracks deadlines but never files anything with SARS or CIPC.
 
 ## Demo script
 
@@ -139,6 +151,10 @@ Then, in the Android app (emulator or device on the same network as the backend)
    Sithole (Thabo's seeded plumber's assistant) → **+** under Payslips → gross pay and
    deductions, net pay works itself out → Save → **Mark as paid today** once the money's
    actually gone out.
+7. Business profile → **Compliance reminders** → see the seeded PAYE/UIF/SDL and CIPC items →
+   open the upcoming PAYE/UIF/SDL one → **Mark done today** → Save → the app offers to add
+   next month's reminder; tap **Add** to confirm it (or **Not now** to skip — nothing is ever
+   created without that explicit tap).
 
 `app/build.gradle.kts`'s debug `BASE_URL` is `http://10.0.2.2:8000/` — the Android emulator's
 alias for the host machine's localhost, matching `runserver 0.0.0.0:8000` above. A physical
@@ -183,28 +199,29 @@ BUILD SUCCESSFUL in 20s
 4 actionable tasks: 4 executed
 ```
 
-39 tests, 39 passing, 0 failures, 0 errors — confirmed via both the console output and the
+40 tests, 40 passing, 0 failures, 0 errors — confirmed via both the console output and the
 JUnit XML result files (`core-domain/build/test-results/test/*.xml`), broken down as:
 
 | Test class                     | Tests | Covers |
 |---------------------------------|:---:|---|
-| `MoneyTest`                     | 11  | Line total rounding, VAT with/without, discount before VAT, discount > subtotal never negative, empty line items, half-up vs half-even, fractional quantities, the flat 15% rate itself, and (new this milestone) net pay = gross - deductions, net pay with zero deductions |
+| `MoneyTest`                     | 11  | Line total rounding, VAT with/without, discount before VAT, discount > subtotal never negative, empty line items, half-up vs half-even, fractional quantities, the flat 15% rate itself, net pay = gross - deductions, net pay with zero deductions |
 | `VatInclusiveExtractionTest`    |  5  | Clean multiples of 115 extract exactly, unclean divisions round half-up, not-VAT-applicable and zero-amount both extract R0.00 — mirrors `backend/tests/test_money.py`'s `VatInclusiveExtractionTests` case-for-case |
 | `SyncDecisionTest`              |  5  | No existing row, incoming strictly newer, existing newer (conflict), equal timestamps (conflict — this is also what makes a replayed push idempotent), sub-second precision |
 | `IsoTimestampTest`              |  7  | `Z` suffix never `+00:00` (and never a raw `+` at all), zero-microsecond formatting, round-trip through format+parse, nanosecond truncation, the contract's own example value, no-fraction parsing, defensive offset-form parsing |
-| `EnumsTest`                     | 11  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value, and (new this milestone) `PayRateType`'s three values match `Employee.PAY_RATE_TYPE_CHOICES` |
+| `EnumsTest`                     | 12  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value, `PayRateType`'s three values match `Employee.PAY_RATE_TYPE_CHOICES`, and (new this milestone) `ComplianceCategory`'s five values match `ComplianceItem.CATEGORY_CHOICES` |
 
 This is the one hard verification gate for this deliverable, and it's genuinely green — not
-asserted, run. This milestone added one `core-domain` enum (`PayRateType`) and one function
-(`Money.computeNetPay`, mirroring `backend/people/services.py:recompute_payslip_net_pay`
-exactly — always `gross_pay - deductions`, quantized to cents, no PAYE/UIF tax-table logic
-anywhere) — both covered above.
+asserted, run. This milestone added one `core-domain` enum (`ComplianceCategory`) and no new
+money-math function — the "add the next reminder" interval suggestion is deliberately *not*
+in core-domain (it isn't a value the server also computes and must match, unlike VAT or net
+pay; it's a pure client-side UX nudge, see `ComplianceEditViewModel.suggestedNextItem`), so it
+lives in the `app` module instead.
 
 **Written but NOT compiled or run here — the `app` module:**
 
-Every file under `app/src/main/kotlin` (124 Kotlin files as of the Employees & Payslips
-milestone — Room entities/DAOs, Retrofit service/DTOs, the sync engine, twelve repositories,
-Hilt modules, and 24 Compose screens with their ViewModels) was written carefully, by hand,
+Every file under `app/src/main/kotlin` (131 Kotlin files as of the Compliance milestone —
+Room entities/DAOs, Retrofit service/DTOs, the sync engine, thirteen repositories,
+Hilt modules, and 26 Compose screens with their ViewModels) was written carefully, by hand,
 cross-checking every field name, wire enum value, and endpoint path against `API_CONTRACT.md`
 and the actual Django serializers/models in `../backend/` — but **`app:compileDebugKotlin` was
 never successfully run**, because it cannot succeed here: AGP needs `android.jar` from an
@@ -304,9 +321,24 @@ From the Employees & Payslips milestone:
   during the Suppliers milestone; re-reading the file confirmed all three blocks are exhaustive
   over the now-twelve-subclass `SyncStatusItem` sealed class.
 
+From the Compliance milestone: no new functional defect turned up in this pass — a direct
+result of applying the two lessons above proactively rather than reactively.
+`SyncStatusRepository`'s constructor params, `observeUnsynced()` flow, and all three
+`when (item) { ... }` branches for the new `ComplianceItem` subclass were written together in
+one edit, then independently re-read against the (now thirteen-subclass) sealed class to
+confirm exhaustiveness before moving on, rather than being caught as a follow-up fix. One
+purely cosmetic slip was caught and fixed while writing, before it was ever "finished" code:
+`ComplianceListScreen.kt`'s list content originally named its collected state `items` — the
+exact same identifier as the imported `LazyListScope.items(...)` DSL function it's passed
+into. `items(items, key = { it.id }) { ... }` is unambiguous and does compile (a `List` has no
+`invoke` operator, so Kotlin's overload resolution can't confuse the two), but it reads as a
+trap for a future reader and doesn't match this codebase's own convention of naming every
+collected list semantically (`employees`, `suppliers`, `expenses`, never the generic `items`).
+Renamed to `complianceItems` throughout the file.
+
 All of the above are exactly the kind of thing a real `compileDebugKotlin` (or a runtime smoke
 test) would catch immediately, which is why this section says "written, not verified" rather
-than "done" — the same class of mistake could plausibly still be sitting somewhere in these 124
+than "done" — the same class of mistake could plausibly still be sitting somewhere in these 131
 files this sandbox couldn't compile. **Confirming the `app` module actually builds and runs
 needs Android Studio or CI with a real Android SDK** — that hasn't happened yet.
 
@@ -345,6 +377,18 @@ needs Android Studio or CI with a real Android SDK** — that hasn't happened ye
   transactional one, for a real SA trade business owner.
 - **Payslip "sharing" is a plain-text summary**, same `Intent.ACTION_SEND` pattern as
   quote/invoice "Send" — no generated PDF, consistent with the "No PDF rendering" note above.
+- **Compliance has no recurrence engine, anywhere.** `ComplianceItem` has no relations to any
+  other model and no server-side scheduling logic at all — the app never creates a reminder on
+  its own. Marking a recurring item done shows an "Add the next reminder?" dialog, pre-filled
+  at a category-typical interval computed client-side (`ComplianceEditViewModel.suggestedNextItem`
+  — VAT return +2 months, PAYE/UIF/SDL +1 month, provisional tax +6 months, CIPC annual return
+  +1 year; "Other" gets no suggestion, since there's no sensible default), but the owner must
+  tap "Add" for anything to actually be created; declining does nothing. Accountant-ready
+  exports (mentioned in the original brief alongside compliance reminders) are Reports-milestone
+  territory and not built here. `ComplianceListScreen`, like `EmployeeListScreen`, is reached
+  from Business Profile/Settings, not a bottom-nav tab — and both the list and edit screens
+  carry an explicit, permanent on-screen line that OPS tracks deadlines but files nothing with
+  SARS or CIPC, per DISCOVERY.md's compliance-honesty note.
 - **One Expense screen, not three.** The original screen list sketched list/new-edit/detail as
   separate screens; built instead as one `ExpenseEditScreen` (create, edit, view, delete, and
   receipt capture all in place) plus the list folded into the Money tab's existing feed
