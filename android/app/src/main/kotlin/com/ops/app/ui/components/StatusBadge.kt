@@ -14,7 +14,7 @@ import com.ops.coredomain.JobStatus
 import com.ops.coredomain.LeadStatus
 import com.ops.coredomain.QuoteStatus
 
-/** OPS Design System v2 — the compact colored pill used for a record's
+/** OPS Design System v3 — the compact colored pill used for a record's
  * lifecycle status (Lead/Quote/Job/Invoice) everywhere that status appears:
  * list rows, detail headers. Same pill shape as [SyncStateBadge] (a
  * different, orthogonal kind of status — "is this on the server yet",
@@ -35,7 +35,10 @@ fun StatusBadge(text: String, tone: StatusTone, modifier: Modifier = Modifier) {
     val color = when (tone) {
         StatusTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
         StatusTone.ATTENTION -> MaterialTheme.colorScheme.secondary
-        StatusTone.SUCCESS -> MaterialTheme.colorScheme.primary
+        // v3: success is tertiary (a dedicated green), not primary — primary
+        // is the product's blue interaction color and no longer doubles as
+        // "this succeeded" the way v2's green primary did.
+        StatusTone.SUCCESS -> MaterialTheme.colorScheme.tertiary
         StatusTone.CRITICAL -> MaterialTheme.colorScheme.error
     }
     Text(

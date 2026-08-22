@@ -28,8 +28,8 @@ fun SyncStatusChip(state: SyncChipState, onClick: () -> Unit, modifier: Modifier
         is SyncChipState.Synced -> ChipVisuals(
             "Synced",
             Icons.Filled.CheckCircle,
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer,
         )
         is SyncChipState.Syncing -> ChipVisuals(
             "Syncing…",

@@ -47,6 +47,8 @@ fun syncStateLabel(syncState: String): String = when (syncState) {
 @Composable
 fun syncStateColor(syncState: String): Color = when (syncState) {
     SyncState.FAILED, SyncState.CONFLICT -> MaterialTheme.colorScheme.error
-    SyncState.SYNCED -> MaterialTheme.colorScheme.primary
+    // v3: "synced" is a success outcome, not a brand/interaction moment —
+    // tertiary (green), not primary (blue), matching StatusBadge's rule.
+    SyncState.SYNCED -> MaterialTheme.colorScheme.tertiary
     else -> MaterialTheme.colorScheme.secondary
 }
