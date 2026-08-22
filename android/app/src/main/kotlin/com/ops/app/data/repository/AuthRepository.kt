@@ -3,6 +3,7 @@ package com.ops.app.data.repository
 import com.ops.app.data.datastore.AuthPreferences
 import com.ops.app.data.local.OpsDatabase
 import com.ops.app.data.local.dao.BusinessDao
+import com.ops.app.data.remote.ConnectionDiagnosis
 import com.ops.app.data.remote.OpsApiService
 import com.ops.app.data.remote.dto.BusinessRegistrationDto
 import com.ops.app.data.remote.dto.LoginRequestDto
@@ -49,6 +50,7 @@ class AuthRepository @Inject constructor(
             ),
         )
         authPreferences.saveTokens(response.access, response.refresh)
+        authPreferences.saveSignedInEmail(email)
         businessDao.upsert(response.business.toLocalEntity())
     }.recoverCatching { throw it.toFriendlyAuthError() }
 
@@ -58,6 +60,7 @@ class AuthRepository @Inject constructor(
     suspend fun login(email: String, password: String): Result<Unit> = runCatching {
         val response = apiService.login(LoginRequestDto(email = email, password = password))
         authPreferences.saveTokens(response.access, response.refresh)
+        authPreferences.saveSignedInEmail(email)
         businessDao.upsert(response.business.toLocalEntity())
     }.recoverCatching { throw it.toFriendlyAuthError() }
 
@@ -70,8 +73,18 @@ class AuthRepository @Inject constructor(
         withContext(Dispatchers.IO) { database.clearAllTables() }
     }
 
+    /**
+     * Replaces a raw exception message (e.g. "failed to connect to /10.0.2.2
+     * (port 8000)" — accurate to a developer, meaningless to a small-business
+     * owner or whoever is helping them get their phone connected) with one
+     * of a fixed set of categories the user can actually act on. A 400 with
+     * a real validation-error body (e.g. register rejecting a duplicate
+     * email) is the one case kept verbatim, since DRF's field-error body is
+     * already specific and more useful than any generic category message.
+     * See ConnectionDiagnosis and android/README.md's diagnosis section.
+     */
     private fun Throwable.toFriendlyAuthError(): Throwable {
-        if (this is HttpException) {
+        if (this is HttpException && code() == 400) {
             val body = try {
                 response()?.errorBody()?.string()
             } catch (e: Exception) {
@@ -79,6 +92,6 @@ class AuthRepository @Inject constructor(
             }
             if (!body.isNullOrBlank()) return Exception(body, this)
         }
-        return this
+        return Exception(ConnectionDiagnosis.from(this, isAuthEndpoint = true).userMessage, this)
     }
 }

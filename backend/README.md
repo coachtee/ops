@@ -29,7 +29,8 @@ export OPS_DB_HOST=localhost OPS_DB_NAME=ops OPS_DB_USER=ops OPS_DB_PASSWORD=ops
 .venv/bin/python manage.py test tests
 ```
 
-151 tests: money/VAT math (including the inclusive-VAT extraction expenses use — the opposite
+160 tests (151 from the original vertical slice + 5 Visit workflow + 3 Visit sync-protocol +
+1 health check, added in Phase 3): money/VAT math (including the inclusive-VAT extraction expenses use — the opposite
 direction from quotes/invoices), auth + registration, quote/invoice line-item totals
 recomputation, job/quote/invoice numbering, invoice payment-state transitions (including
 reversing a payment), expense validation (amount, future-dated, category, cross-tenant job
@@ -54,12 +55,37 @@ supplier referenced by an expense, and an employee referenced by a payslip, earl
 same batch), and a full offline session (customer + invoice + line item + payment) synced in a
 single push.
 
-## What's deliberately not production-hardened yet
+## Health check
 
-This is the vertical slice's backend, not a deployed instance. `manage.py check --deploy`
-will flag: `DEBUG=True` by default, a placeholder `SECRET_KEY`, and no HTTPS/HSTS/secure-cookie
-settings — all controlled by `OPS_DEBUG`/`OPS_SECRET_KEY`/env vars, and all things to set
-explicitly before any real deployment, not oversights in this slice.
+`GET /api/health/` — no auth required, checks Django is up and can reach PostgreSQL. See
+`docs/API_CONTRACT.md`'s "Health check" section. Infrastructure reachability only; not a
+substitute for exercising the real authenticated API.
+
+## Production readiness
+
+This has never been deployed anywhere — see `../android/README.md`'s "No staging/production
+server exists yet" section for exactly what a real deployment needs (domain, DNS, TLS, a WSGI
+server, hosting). What the settings themselves already do:
+
+- `DEBUG` still defaults to `True` (`OPS_DEBUG` unset) so `runserver`/`test` keep working with
+  zero env vars, exactly as this README's own Run/Test sections show. **But** the moment
+  `OPS_DEBUG=0` is set (i.e. this is an actual non-development run), `ops/settings.py` refuses
+  to start at all if `OPS_SECRET_KEY` is still the placeholder dev value or `OPS_ALLOWED_HOSTS`
+  is left at its `*` default — loud failure at startup, not a silently-insecure server. Set both
+  explicitly for any real run.
+- HTTPS hardening (`SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`,
+  `SECURE_PROXY_SSL_HEADER`) is applied automatically whenever `OPS_DEBUG=0` — no separate flag
+  to remember. Assumes TLS is terminated by a reverse proxy/PaaS in front of Django, the normal
+  deployment shape.
+- `CORS_ALLOW_ALL_ORIGINS` is `True` only in `DEBUG` (harmless either way for the Android app,
+  which doesn't send browser-style CORS preflight requests at all — this only matters for a
+  hypothetical future web/browser client); set `OPS_CORS_ALLOWED_ORIGINS` (comma-separated) for
+  any real deployment that needs one.
+- Not yet handled at all: a WSGI server (`gunicorn` isn't in `requirements.txt`), static/media
+  file serving beyond Django's DEBUG-only helper (receipts and visit photos would need a
+  persistent volume or object storage on most hosting), and any actual DNS/TLS setup — none of
+  these are settings-file changes, they're deployment infrastructure that doesn't exist to
+  configure yet.
 
 ## Layout
 

@@ -4,6 +4,7 @@ import com.ops.app.data.remote.dto.AuthResponseDto
 import com.ops.app.data.remote.dto.BusinessDto
 import com.ops.app.data.remote.dto.BusinessPatchDto
 import com.ops.app.data.remote.dto.ExpenseFieldsDto
+import com.ops.app.data.remote.dto.HealthResponseDto
 import com.ops.app.data.remote.dto.LoginRequestDto
 import com.ops.app.data.remote.dto.RefreshRequestDto
 import com.ops.app.data.remote.dto.RefreshResponseDto
@@ -35,6 +36,12 @@ import retrofit2.http.Query
  * token is obtained in the first place.
  */
 interface OpsApiService {
+
+    /** No auth required (see AuthHeaderInterceptor.NO_AUTH_PATHS) — has to
+     * answer before a client has any token at all. Debug-only Connection
+     * Diagnostics screen's "Test connection" button; not used anywhere else. */
+    @GET("api/health/")
+    suspend fun health(): HealthResponseDto
 
     @POST("api/auth/register/")
     suspend fun register(@Body body: RegisterRequestDto): AuthResponseDto

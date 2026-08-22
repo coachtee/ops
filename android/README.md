@@ -236,6 +236,88 @@ reads `BuildConfig.BASE_URL`. Three cases:
    the wrong server. The release build type also requires an `https://` scheme — it will not
    build a release variant configured with a plain-HTTP endpoint.
 
+### Diagnosing a physical-device connection problem
+
+"Failed to connect to /10.0.2.2 (port 8000)" specifically means case 2 above was never actually
+set up on this install — the emulator-alias default is still in effect. Before assuming
+anything is broken, check these in order (each is a real, common cause, not a hypothetical):
+
+1. **Is a Django server actually running and reachable from this phone at all?** This sandbox's
+   own dev server is not an option — it's an ephemeral container with no public address, and
+   even when running it's only reachable from *this* machine, never from an external phone. You
+   need Django running somewhere your phone can actually open a TCP connection to: your own
+   laptop/desktop on the same Wi-Fi (see below), or a real deployed server (see "No staging
+   server exists yet" below).
+2. **Same network, actually.** A phone on a guest Wi-Fi network, mobile data, or a different
+   VLAN than the computer running Django cannot reach it by LAN IP at all, regardless of what's
+   configured — many home/office Wi-Fi setups isolate "guest" devices from each other by design.
+   Confirm both devices show the same Wi-Fi network name, not just "connected to Wi-Fi."
+3. **`runserver 0.0.0.0:8000`, not `runserver 8000` or `runserver localhost:8000`.** The latter
+   two only listen on the host machine's own loopback interface — invisible from any other
+   device on the network even when the network itself is fine.
+4. **The Developer options value is the computer's LAN IP, not `localhost`/`127.0.0.1`.**
+   `127.0.0.1` from the phone's perspective means the phone itself, not the computer — this is
+   an easy copy-paste mistake from a browser tab that was open on the computer. Find the real
+   LAN IP with `ipconfig` (Windows, look for IPv4 Address) or `ifconfig`/`ip addr` (macOS/Linux,
+   look for the Wi-Fi adapter's `inet` address) — typically `192.168.x.x` or `10.x.x.x`.
+5. **The computer's firewall allows inbound connections on port 8000.** Windows Defender
+   Firewall and macOS's firewall both block unsolicited inbound connections by default the first
+   time a port is used — the OS usually prompts to allow it the first time `runserver` binds to
+   `0.0.0.0`, but a "block" click (or a corporate-managed firewall with no prompt at all) means
+   the connection will time out or refuse silently from the phone's side.
+6. **The scheme matches.** A local dev server is `http://`, not `https://` — entering
+   `https://192.168.1.20:8000/` will fail even with everything else correct, since nothing is
+   terminating TLS on a plain `runserver`.
+
+Once you believe it's configured correctly, the debug-only **Connection diagnostics** screen
+(Business Profile → Developer options → **Connection diagnostics**, only visible in a debug
+build) turns "I think it should work" into an actual answer on the phone itself:
+- **Test connection** calls `GET /api/health/` (no login needed) — if this fails, it's a pure
+  network/reachability problem (points 1–6 above), nothing to do with your account.
+- **Test authentication** calls a real authenticated endpoint with whatever token is currently
+  stored — if connection succeeds but this fails, the server is reachable but either you're not
+  signed in or the stored token is no longer valid.
+- **Sync now** runs the real sync engine on demand and shows its outcome.
+
+Each failure surfaces one of a small fixed set of categories (`NETWORK_UNREACHABLE`, `TIMEOUT`,
+`AUTHENTICATION_FAILED`, `SERVER_ERROR`, `INVALID_RESPONSE`) — see
+`data/remote/ConnectionDiagnosis.kt` — instead of a raw exception message like the one this
+section opened with.
+
+### No staging/production server exists yet — what's actually needed
+
+This repository has never been deployed anywhere. `backend/requirements.txt` has no WSGI server
+(`manage.py runserver` is a development-only server, not meant to serve real traffic), no static
+file serving story beyond Django's own DEBUG-only helper, and no `.env`/Docker/Procfile of any
+kind. Getting a real, internet-reachable HTTPS staging environment requires, at minimum:
+
+- **A domain name** (or subdomain, e.g. `staging-api.yourdomain.co.za`) pointed at the server via
+  a DNS **A record** (or **CNAME** if the host is itself named, e.g. many PaaS providers).
+- **A host to run Django + PostgreSQL** — a VPS, or a PaaS (Render/Railway/Fly.io/etc.) with a
+  managed Postgres add-on. Either way, Django needs a real WSGI server in front of it
+  (`gunicorn`, not in `requirements.txt` yet) and PostgreSQL needs to be reachable from wherever
+  Django runs.
+- **TLS/HTTPS** — a managed certificate (most PaaS providers and Caddy/nginx-with-certbot handle
+  this automatically once the domain resolves) terminating in front of Django. The release
+  Android build refuses to build against anything but an `https://` URL (see case 3 above), and
+  `ops/settings.py` now sets `SECURE_SSL_REDIRECT`/`SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE`
+  whenever `OPS_DEBUG=0`, assuming TLS is terminated by a reverse proxy in front of it
+  (`SECURE_PROXY_SSL_HEADER` is set accordingly).
+- **Environment variables set on that host**: `OPS_DEBUG=0`, `OPS_SECRET_KEY=<a real random
+  secret>`, `OPS_ALLOWED_HOSTS=<the domain>`, `OPS_DB_HOST`/`OPS_DB_NAME`/`OPS_DB_USER`/
+  `OPS_DB_PASSWORD`/`OPS_DB_PORT` pointing at the real Postgres instance. `ops/settings.py`
+  refuses to start with `OPS_DEBUG=0` if the secret key or allowed-hosts are left at their
+  insecure development defaults — this is deliberate, not a bug to work around.
+- **A media storage decision** — `MEDIA_ROOT` is local-filesystem by default, which is fine for a
+  single persistent-disk server but loses uploaded receipts/photos on any host with an ephemeral
+  filesystem (most PaaS free/hobby tiers). A real deployment needs either a persistent volume or
+  object storage (S3-compatible) wired up — not yet implemented, since there's nowhere to deploy
+  to yet.
+
+None of the above is invented or assumed here — if a real domain and hosting target exist,
+supply them and the release build config (case 3 above) and `ops/settings.py`'s env-var-driven
+settings are already set up to take them without further code changes.
+
 ## Opening/building in Android Studio
 
 1. Open the `android/` directory (this directory, not the repo root) as the project root.

@@ -9,6 +9,17 @@ string decodes as a space under standard form-encoding rules, which would silent
 (e.g. a record's `updated_at`) must do the same. All dates `YYYY-MM-DD`. Currency is always
 ZAR — not sent per record.
 
+## Health check
+
+### `GET /api/health/`
+No authentication required — has to answer before a client has any token at all. `200` →
+`{"status": "ok", "service": "ops-api", "database": "ok"|"error: <detail>"}`. Infrastructure
+reachability only: proves Django is up and can reach PostgreSQL, nothing about the actual
+application working. Never a substitute for a real authenticated UAT pass — see the Android
+app's debug-only Connection Diagnostics screen (Business Profile → Developer options), which
+uses this as its "Test connection" check and a real authenticated `GET /api/business/me/` call
+as its separate "Test authentication" check.
+
 ## Auth
 
 `djangorestframework-simplejwt`. Every endpoint below except `register`/`login`/`refresh`

@@ -33,6 +33,7 @@ import com.ops.app.ui.reports.ReportsScreen
 import com.ops.app.ui.schedule.ScheduleScreen
 import com.ops.app.ui.schedule.ScheduleVisitScreen
 import com.ops.app.ui.schedule.VisitDetailScreen
+import com.ops.app.ui.diagnostics.ConnectionDiagnosticsScreen
 import com.ops.app.ui.settings.BusinessProfileScreen
 import com.ops.app.ui.splash.SplashScreen
 import com.ops.app.ui.suppliers.SupplierEditScreen
@@ -399,12 +400,17 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
                 onBack = { navController.popBackStack() },
                 onOpenEmployees = { navController.navigate(OpsDestinations.EMPLOYEES) },
                 onOpenCompliance = { navController.navigate(OpsDestinations.COMPLIANCE) },
+                onOpenDiagnostics = { navController.navigate(OpsDestinations.CONNECTION_DIAGNOSTICS) },
                 onLoggedOut = {
                     navController.navigate(OpsDestinations.BUSINESS_SETUP) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
             )
+        }
+
+        composable(OpsDestinations.CONNECTION_DIAGNOSTICS) {
+            ConnectionDiagnosticsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

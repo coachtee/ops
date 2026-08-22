@@ -124,6 +124,8 @@ object OpsDestinations {
 
     const val SYNC_STATUS = "sync_status"
     const val BUSINESS_PROFILE = "business_profile"
+    // Debug-only — see BusinessProfileScreen's Developer options gate.
+    const val CONNECTION_DIAGNOSTICS = "connection_diagnostics"
 
     /** Treat the [NONE] sentinel as a real null, everywhere a route reads a path segment. */
     fun String?.orNull(): String? = if (this == null || this == NONE) null else this

@@ -29,16 +29,39 @@ class AuthPreferences @Inject constructor(
         // response's server_time, taken by the server before its query ran,
         // per API_CONTRACT.md, so a row written mid-request is never missed.
         val SYNC_CURSOR = stringPreferencesKey("sync_cursor")
+        // Diagnostics-only (see ui/diagnostics/ConnectionDiagnosticsScreen) —
+        // not used by the sync protocol itself, unlike SYNC_CURSOR above.
+        val SIGNED_IN_EMAIL = stringPreferencesKey("signed_in_email")
+        val LAST_SYNC_SUCCESS_AT = stringPreferencesKey("last_sync_success_at")
+        val LAST_SYNC_ERROR = stringPreferencesKey("last_sync_error")
     }
 
     val accessToken: Flow<String?> = context.dataStore.data.map { it[Keys.ACCESS_TOKEN] }
     val refreshToken: Flow<String?> = context.dataStore.data.map { it[Keys.REFRESH_TOKEN] }
     val syncCursor: Flow<String?> = context.dataStore.data.map { it[Keys.SYNC_CURSOR] }
     val isSignedIn: Flow<Boolean> = accessToken.map { !it.isNullOrBlank() }
+    val signedInEmail: Flow<String?> = context.dataStore.data.map { it[Keys.SIGNED_IN_EMAIL] }
+    val lastSyncSuccessAt: Flow<String?> = context.dataStore.data.map { it[Keys.LAST_SYNC_SUCCESS_AT] }
+    val lastSyncError: Flow<String?> = context.dataStore.data.map { it[Keys.LAST_SYNC_ERROR] }
 
     suspend fun currentAccessToken(): String? = accessToken.first()
     suspend fun currentRefreshToken(): String? = refreshToken.first()
     suspend fun currentSyncCursor(): String? = syncCursor.first()
+
+    suspend fun saveSignedInEmail(email: String) {
+        context.dataStore.edit { prefs -> prefs[Keys.SIGNED_IN_EMAIL] = email }
+    }
+
+    suspend fun saveLastSyncSuccessAt(iso: String) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.LAST_SYNC_SUCCESS_AT] = iso
+            prefs.remove(Keys.LAST_SYNC_ERROR)
+        }
+    }
+
+    suspend fun saveLastSyncError(message: String) {
+        context.dataStore.edit { prefs -> prefs[Keys.LAST_SYNC_ERROR] = message }
+    }
 
     suspend fun saveTokens(access: String, refresh: String) {
         context.dataStore.edit { prefs ->

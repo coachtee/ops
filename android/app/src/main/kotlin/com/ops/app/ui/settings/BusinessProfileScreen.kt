@@ -79,6 +79,7 @@ fun BusinessProfileScreen(
     onBack: () -> Unit,
     onOpenEmployees: () -> Unit,
     onOpenCompliance: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: BusinessProfileViewModel = hiltViewModel(),
 ) {
@@ -111,6 +112,7 @@ fun BusinessProfileScreen(
         onBack = onBack,
         onOpenEmployees = onOpenEmployees,
         onOpenCompliance = onOpenCompliance,
+        onOpenDiagnostics = onOpenDiagnostics,
         onPickLogo = { logoPicker.launch("image/*") },
         onSave = { fields -> viewModel.save(fields, pendingLogoBytes, pendingLogoMime) { pendingLogoBytes = null } },
         onLogout = { viewModel.logout(onLoggedOut) },
@@ -135,6 +137,7 @@ fun BusinessProfileContent(
     onBack: () -> Unit,
     onOpenEmployees: () -> Unit,
     onOpenCompliance: () -> Unit,
+    onOpenDiagnostics: () -> Unit = {},
     onPickLogo: () -> Unit,
     onSave: (BusinessPatchDto) -> Unit,
     onLogout: () -> Unit,
@@ -277,7 +280,7 @@ fun BusinessProfileContent(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                     OutlinedButton(
                         onClick = { serverUrlDraft = ""; onSetServerUrlOverride(null) },
                         modifier = Modifier.weight(1f),
@@ -288,6 +291,10 @@ fun BusinessProfileContent(
                         modifier = Modifier.weight(1f),
                     ) { Text("Save") }
                 }
+                OutlinedButton(
+                    onClick = onOpenDiagnostics,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
+                ) { Text("Connection diagnostics") }
             }
         }
     }

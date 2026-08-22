@@ -18,6 +18,7 @@ import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
 import com.ops.app.data.local.dao.VisitDao
+import com.ops.app.data.remote.ConnectionDiagnosis
 import com.ops.app.data.remote.OpsApiService
 import com.ops.app.data.remote.dto.ComplianceItemFieldsDto
 import com.ops.app.data.remote.dto.CustomerFieldsDto
@@ -51,9 +52,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
-import retrofit2.HttpException
 import java.io.File
-import java.io.IOException
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -170,9 +169,12 @@ class SyncManager @Inject constructor(
                 pullChanges()
                 syncReceipts()
                 syncVisitPhotos()
+                authPreferences.saveLastSyncSuccessAt(IsoTimestamp.format(Instant.now()))
                 SyncOutcome.Success
             } catch (e: Exception) {
-                SyncOutcome.Failed(describeError(e))
+                val description = describeError(e)
+                authPreferences.saveLastSyncError(description)
+                SyncOutcome.Failed(description)
             } finally {
                 _isSyncing.value = false
             }
@@ -604,9 +606,5 @@ class SyncManager @Inject constructor(
         else -> "image/jpeg"
     }.toMediaType()
 
-    private fun describeError(e: Exception): String = when (e) {
-        is HttpException -> "Server error (HTTP ${e.code()}). Your changes are safe on this phone."
-        is IOException -> "No connection. Your changes are safe on this phone — they'll sync automatically."
-        else -> e.message ?: "Sync failed. Your changes are safe on this phone."
-    }
+    private fun describeError(e: Exception): String = ConnectionDiagnosis.from(e).userMessage
 }
