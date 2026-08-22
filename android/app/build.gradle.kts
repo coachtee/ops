@@ -23,10 +23,16 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // BASE_URL points at the Django dev server. 10.0.2.2 is the Android
-        // emulator's alias for the host machine's localhost; a physical
-        // device on the same Wi-Fi as `runserver 0.0.0.0:8000` would instead
-        // set this to the host machine's LAN IP (e.g. "http://192.168.1.20:8000/").
+        // BASE_URL's debug default points at the Android emulator's alias for
+        // the host machine's localhost — right for `gradle :app:assembleDebug`
+        // run against an emulator. A physical device can't resolve 10.0.2.2,
+        // and can't easily get a custom build either (this APK usually comes
+        // from CI, not a local `gradle` invocation with a custom property) —
+        // for that case there's a runtime escape hatch instead of a build-time
+        // one: Settings > Developer options (debug builds only) lets a tester
+        // type their machine's LAN IP straight into the installed APK; see
+        // DevServerUrlInterceptor. This buildConfigField is only ever the
+        // *default* debug builds fall back to when no override is set.
         buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -36,6 +42,29 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+            // No real production domain exists yet (see android/README.md's
+            // "API configuration" section) — never hardcode a guessed one
+            // here. Supply the real HTTPS endpoint at build time via
+            // -PopsProdApiBaseUrl=https://api.example.com/ or the
+            // OPS_PROD_API_BASE_URL env var (e.g. a CI secret).
+            //
+            // This block is configuration-time Gradle code, so it runs on
+            // every invocation touching this module — including a plain
+            // `:app:assembleDebug` — whether or not a release variant is
+            // actually being built. It can't safely `error()` when
+            // unconfigured without breaking every debug build too. Instead,
+            // an unconfigured release build falls back to a `.invalid`
+            // hostname (reserved by RFC 2606 to never resolve), so it fails
+            // loudly with a DNS error at connection time rather than
+            // silently reaching some other real host.
+            val prodBaseUrl = (project.findProperty("opsProdApiBaseUrl") as String?)
+                ?: System.getenv("OPS_PROD_API_BASE_URL")
+                ?: "https://ops-production-api-not-configured.invalid/"
+            require(prodBaseUrl.startsWith("https://")) {
+                "opsProdApiBaseUrl/OPS_PROD_API_BASE_URL must be an https:// URL, got: $prodBaseUrl"
+            }
+            buildConfigField("String", "BASE_URL", "\"$prodBaseUrl\"")
         }
         debug {
             isDebuggable = true

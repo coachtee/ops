@@ -174,9 +174,40 @@ Then, in the Android app (emulator or device on the same network as the backend)
    Thabo isn't VAT-registered — against whatever VAT was extracted from this month's expenses).
    No extra sync or network call happens when this tab opens.
 
-`app/build.gradle.kts`'s debug `BASE_URL` is `http://10.0.2.2:8000/` — the Android emulator's
-alias for the host machine's localhost, matching `runserver 0.0.0.0:8000` above. A physical
-device on the same Wi-Fi needs that changed to the host's real LAN IP instead.
+## API configuration
+
+The API base URL is never hardcoded in a ViewModel, repository, or screen — everything routes
+through Retrofit's single `Retrofit.Builder().baseUrl(...)` call in `di/NetworkModule.kt`, which
+reads `BuildConfig.BASE_URL`. Three cases:
+
+1. **Emulator (debug default).** `app/build.gradle.kts`'s `defaultConfig` sets
+   `BASE_URL = "http://10.0.2.2:8000/"` — the Android emulator's alias for the host machine's
+   localhost, matching `runserver 0.0.0.0:8000` above. This is what a debug build ships with if
+   nothing else is configured.
+
+2. **Physical device, development.** A physical phone can't resolve `10.0.2.2`, and a tester
+   installing a CI-built debug APK usually can't rebuild it with a custom Gradle property either.
+   Instead of a build-time value, debug builds have a *runtime* override: Business profile →
+   **Developer options** (only rendered when `BuildConfig.DEBUG`, so it's invisible in a release
+   build) → **Server URL** → e.g. `http://192.168.1.20:8000/` (the host machine's LAN IP, with
+   `runserver 0.0.0.0:8000` so it's actually listening on the LAN, not just localhost) → **Save**.
+   `DevServerUrlInterceptor` (`data/remote/`) then rewrites every request's scheme/host/port to
+   that override before it goes out — nothing else about the request changes. The override is
+   stored in its own tiny DataStore (`DevServerPreferences`), independent of login state, and
+   only ever takes effect when `BuildConfig.DEBUG` is true — a release build ignores it entirely,
+   compiled in, not a runtime check that could be bypassed.
+   `app/src/debug/res/xml/network_security_config.xml` permits cleartext broadly for debug
+   builds only (a dev LAN IP is plain HTTP and not known ahead of time); the release config at
+   `app/src/main/res/xml/network_security_config.xml` permits none.
+
+3. **Production.** No production domain exists yet. `app/build.gradle.kts`'s `release` build
+   type reads the real endpoint from `-PopsProdApiBaseUrl=https://api.example.com/` (a Gradle
+   property) or the `OPS_PROD_API_BASE_URL` environment variable (e.g. a CI secret) — never a
+   value committed to source. An unconfigured release build falls back to a
+   `https://…-not-configured.invalid/` host (the `.invalid` TLD is reserved by RFC 2606 to never
+   resolve), so it fails loudly with a DNS error at connection time instead of silently reaching
+   the wrong server. The release build type also requires an `https://` scheme — it will not
+   build a release variant configured with a plain-HTTP endpoint.
 
 ## Opening/building in Android Studio
 

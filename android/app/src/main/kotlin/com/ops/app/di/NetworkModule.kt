@@ -3,6 +3,7 @@ package com.ops.app.di
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.ops.app.BuildConfig
 import com.ops.app.data.remote.AuthHeaderInterceptor
+import com.ops.app.data.remote.DevServerUrlInterceptor
 import com.ops.app.data.remote.OpsApiService
 import com.ops.app.data.remote.TokenAuthenticator
 import dagger.Module
@@ -32,6 +33,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        devServerUrlInterceptor: DevServerUrlInterceptor,
         authHeaderInterceptor: AuthHeaderInterceptor,
         tokenAuthenticator: TokenAuthenticator,
     ): OkHttpClient {
@@ -48,6 +50,10 @@ object NetworkModule {
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
+            // Must run before anything else touches the URL — it only ever
+            // rewrites scheme/host/port (see the interceptor's doc), so it's
+            // safe ahead of auth/logging regardless of order.
+            .addInterceptor(devServerUrlInterceptor)
             .addInterceptor(authHeaderInterceptor)
             .authenticator(tokenAuthenticator)
             .addInterceptor(logging)

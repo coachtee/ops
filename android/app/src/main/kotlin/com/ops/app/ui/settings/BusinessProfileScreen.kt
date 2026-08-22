@@ -47,11 +47,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ops.app.BuildConfig
 import com.ops.app.data.remote.dto.BusinessPatchDto
 import com.ops.app.ui.businesssetup.INDUSTRY_CHOICES
 import com.ops.app.ui.components.ErrorBanner
 import com.ops.app.ui.components.LabeledDropdown
 import com.ops.app.ui.components.PROVINCE_CHOICES
+import com.ops.app.ui.components.SectionHeader
 import kotlinx.coroutines.launch
 
 private data class EditableBusiness(
@@ -83,6 +85,7 @@ fun BusinessProfileScreen(
     val business by viewModel.business.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val serverUrlOverride by viewModel.serverUrlOverride.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -111,6 +114,9 @@ fun BusinessProfileScreen(
         onPickLogo = { logoPicker.launch("image/*") },
         onSave = { fields -> viewModel.save(fields, pendingLogoBytes, pendingLogoMime) { pendingLogoBytes = null } },
         onLogout = { viewModel.logout(onLoggedOut) },
+        showDeveloperOptions = BuildConfig.DEBUG,
+        serverUrlOverride = serverUrlOverride,
+        onSetServerUrlOverride = viewModel::setServerUrlOverride,
     )
 }
 
@@ -132,6 +138,9 @@ fun BusinessProfileContent(
     onPickLogo: () -> Unit,
     onSave: (BusinessPatchDto) -> Unit,
     onLogout: () -> Unit,
+    showDeveloperOptions: Boolean = false,
+    serverUrlOverride: String? = null,
+    onSetServerUrlOverride: (String?) -> Unit = {},
 ) {
     var form by remember(business?.id) {
         mutableStateOf(
@@ -145,6 +154,7 @@ fun BusinessProfileContent(
         )
     }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+    var serverUrlDraft by remember(serverUrlOverride) { mutableStateOf(serverUrlOverride.orEmpty()) }
 
     Scaffold(
         topBar = {
@@ -248,8 +258,37 @@ fun BusinessProfileContent(
 
             OutlinedButton(
                 onClick = { showLogoutConfirm = true },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = if (showDeveloperOptions) 8.dp else 24.dp),
             ) { Text("Log out") }
+
+            if (showDeveloperOptions) {
+                SectionHeader("Developer options")
+                Text(
+                    "Debug builds only — points this install at a different Django server without a rebuild. " +
+                        "Leave blank to use the build's default (the Android emulator's host alias).",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = serverUrlDraft,
+                    onValueChange = { serverUrlDraft = it },
+                    label = { Text("Server URL") },
+                    placeholder = { Text("http://192.168.1.20:8000/") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)) {
+                    OutlinedButton(
+                        onClick = { serverUrlDraft = ""; onSetServerUrlOverride(null) },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Reset to default") }
+                    Button(
+                        onClick = { onSetServerUrlOverride(serverUrlDraft) },
+                        enabled = serverUrlDraft.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("Save") }
+                }
+            }
         }
     }
 

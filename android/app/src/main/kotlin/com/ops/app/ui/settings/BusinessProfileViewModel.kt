@@ -2,6 +2,7 @@ package com.ops.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ops.app.data.datastore.DevServerPreferences
 import com.ops.app.data.local.entities.BusinessEntity
 import com.ops.app.data.remote.dto.BusinessPatchDto
 import com.ops.app.data.repository.AuthRepository
@@ -19,10 +20,18 @@ import javax.inject.Inject
 class BusinessProfileViewModel @Inject constructor(
     private val businessRepository: BusinessRepository,
     private val authRepository: AuthRepository,
+    private val devServerPreferences: DevServerPreferences,
 ) : ViewModel() {
 
     val business: StateFlow<BusinessEntity?> = businessRepository.observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val serverUrlOverride: StateFlow<String?> = devServerPreferences.serverUrlOverride
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setServerUrlOverride(url: String?) {
+        viewModelScope.launch { devServerPreferences.setServerUrlOverride(url) }
+    }
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()

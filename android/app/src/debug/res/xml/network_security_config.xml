@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-build-only override of app/src/main/res/xml/network_security_config.xml
+  (same filename — Gradle's debug source set wins for debug builds, main's
+  strict version is what release ships). A debug APK is what every UAT
+  tester installs, and its dev server is routinely plain HTTP: the Android
+  emulator's 10.0.2.2 alias, localhost, or a teammate's LAN IP typed into
+  Settings > Developer options (see DevServerUrlInterceptor) — that IP is
+  not known ahead of time, so this permits cleartext broadly rather than
+  listing specific hosts. Never shipped to a real device outside debug/UAT
+  builds; the release config above has no such exception.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
