@@ -17,6 +17,7 @@ import com.ops.app.data.local.dao.PayslipDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
+import com.ops.app.data.local.dao.VisitDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -76,4 +77,7 @@ object DatabaseModule {
 
     @Provides
     fun provideComplianceItemDao(db: OpsDatabase): ComplianceItemDao = db.complianceItemDao()
+
+    @Provides
+    fun provideVisitDao(db: OpsDatabase): VisitDao = db.visitDao()
 }
