@@ -629,9 +629,11 @@ class ScreenshotTest {
                     uiState = JobDetailUiState(
                         job = job, customer = customer, quote = quote,
                         invoices = listOf(invoice), payments = listOf(payment), expenses = listOf(expense),
+                        visits = listOf(visitToday),
                     ),
                     onBack = {}, onOpenCustomer = {}, onOpenQuote = {}, onOpenInvoice = {},
-                    onCreateInvoice = { _, _, _ -> }, onUpdateStatus = {}, onUpdateDates = { _, _ -> },
+                    onCreateInvoice = { _, _, _ -> }, onOpenVisit = {}, onScheduleVisit = {},
+                    onUpdateStatus = {}, onUpdateDates = { _, _ -> },
                 )
             }
         }
