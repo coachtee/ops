@@ -63,37 +63,47 @@ android/
   `PayslipEntity` (v4) carries `netPay` always derived from `grossPay - deductions` (never
   hand-entered), same pattern as `ExpenseEntity.vatAmount`. `ComplianceItemEntity` (v5) is a
   plain deadline row (category, title, dueDate, completedDate, isRecurring, notes) — no
-  relations to any other entity. Schema history: `v2` added `ExpenseEntity`; `v3` added
-  `SupplierEntity` and `ExpenseEntity.supplierId`; `v4` added `EmployeeEntity` and
-  `PayslipEntity`; `v5` added `ComplianceItemEntity`. None of these has a migration path from
+  relations to any other entity. `VisitEntity` (v6, Phase 3) is one scheduled attendance
+  against a `JobEntity` — customer/address are reached via the parent job, not duplicated —
+  and carries the same local-photo/sync-state shape as `ExpenseEntity`'s receipt fields
+  (`localPhotoPath`/`photoSyncState`/`photoSyncError`), one photo slot, not a gallery. Schema
+  history: `v2` added `ExpenseEntity`; `v3` added `SupplierEntity` and
+  `ExpenseEntity.supplierId`; `v4` added `EmployeeEntity` and `PayslipEntity`; `v5` added
+  `ComplianceItemEntity`; `v6` added `VisitEntity`. None of these has a migration path from
   the version before it — `fallbackToDestructiveMigration()` — since this app has never
   shipped; that stops being acceptable once it does.
 - `data/remote/` — Retrofit `OpsApiService` (every endpoint in API_CONTRACT.md, including the
-  multipart `POST /api/expenses/{id}/receipt/`), kotlinx.serialization DTOs,
-  `AuthHeaderInterceptor` + `TokenAuthenticator` (401 → refresh once → retry).
+  multipart `POST /api/expenses/{id}/receipt/` and `POST /api/visits/{id}/photo/`),
+  kotlinx.serialization DTOs, `AuthHeaderInterceptor` + `TokenAuthenticator` (401 → refresh
+  once → retry).
 - `data/sync/` — `SyncManager`, the offline-sync engine's client half: push → mark
-  accepted/conflict/error → pull → upsert-if-safe → persist cursor, THEN a second, separate
-  phase (`syncReceipts`) that uploads any expense's local receipt photo once — and only once —
-  that expense's own JSON record has confirmed SYNCED (the upload 404s otherwise; see
-  API_CONTRACT.md's "Expense receipt attachments"). Each receipt upload's failure is isolated
-  per-record and never fails the overall sync outcome. Plus `SyncWorker` (WorkManager, ~15 min
-  periodic heartbeat + expedited one-time trigger after local writes).
+  accepted/conflict/error → pull → upsert-if-safe → persist cursor, THEN two further, separate
+  phases (`syncReceipts`, `syncVisitPhotos`) that each upload a local photo once — and only
+  once — its parent record's own JSON has confirmed SYNCED (the upload 404s otherwise; see
+  API_CONTRACT.md's "Expense receipt attachments" / "Visit photo attachment"). Each photo
+  upload's failure is isolated per-record and never fails the overall sync outcome. Plus
+  `SyncWorker` (WorkManager, ~15 min periodic heartbeat + expedited one-time trigger after
+  local writes).
 - `data/repository/` — one repository per aggregate (Lead, Customer, Quote+line items,
   Job, Invoice+line items, Payment, Supplier, Expense, Employee, Payslip, ComplianceItem,
-  Business, Auth) plus `SyncStatusRepository` for the sync status screen's cross-model view.
-  `ExpenseRepository.attachReceipt`/`retryReceipt` manage the receipt state machine;
-  `save`/`delete` are the usual PENDING-then-sync pattern, same for `SupplierRepository`,
-  `EmployeeRepository`, and `ComplianceItemRepository`. `PayslipRepository.save` computes
-  `netPay` locally via the new `Money.computeNetPay` (core-domain) before writing, same
-  instant-offline-UI reasoning as `ExpenseRepository.save`'s VAT extraction.
+  Visit, Business, Auth) plus `SyncStatusRepository` for the sync status screen's cross-model
+  view. `ExpenseRepository.attachReceipt`/`retryReceipt` and `VisitRepository.attachPhoto`/
+  `retryPhoto` manage their respective photo state machines; `save`/`delete` are the usual
+  PENDING-then-sync pattern, same for `SupplierRepository`, `EmployeeRepository`, and
+  `ComplianceItemRepository`. `PayslipRepository.save` computes `netPay` locally via the new
+  `Money.computeNetPay` (core-domain) before writing, same instant-offline-UI reasoning as
+  `ExpenseRepository.save`'s VAT extraction. `VisitRepository.start`/`complete` stamp
+  `startedAt`/`completedAt` once each (a second call is a no-op), same "the client decides the
+  timestamp offline, the server never overwrites it" reasoning as everywhere else timestamps
+  are set client-side.
 - `di/` — Hilt modules for Room, Retrofit/OkHttp, WorkManager. `AuthPreferences`
   (DataStore-backed) and every repository are constructor-injected directly (`@Inject
   constructor`), which is itself Hilt DI — no separate binding module is needed for concrete
   classes with no interface to bind against.
 - `ui/` — one package per screen area (`splash`, `businesssetup`, `home`, `leads`,
   `customers`, `quotes`, `jobs`, `invoices`, `payments`, `expenses`, `suppliers`, `employees`,
-  `compliance`, `reports`, `money`, `syncstatus`, `settings`), each with a `@HiltViewModel` + a
-  Compose screen, plus
+  `compliance`, `reports`, `money`, `syncstatus`, `settings`, `schedule` (Phase 3), `more`
+  (Phase 3)), each with a `@HiltViewModel` + a Compose screen, plus
   `ui/navigation/OpsNavGraph.kt` wiring all of them together and `ui/components/` for shared
   pieces (money/date formatting, the sync status chip, the branded quote/invoice letterhead, a
   date picker field, dropdowns). `ui/expenses/ExpenseEditScreen` is one screen for create,
@@ -107,10 +117,10 @@ android/
   tab — "Money in → Money out → Expenses → Suppliers" is one conceptual thread, not a separate
   app section. `ui/employees/EmployeeEditScreen` follows the identical single-screen pattern
   (plus a "Payslips" section listing that employee's payslip history, each row navigating to
-  `PayslipEditScreen`); `EmployeeListScreen` is reached from Business Profile/Settings rather
-  than the Money tab or a bottom-nav tab of its own — staff management reads as "part of
-  running the business" to a real owner, not a daily transactional workflow like leads or
-  invoices. `PayslipEditScreen` is its own single create/edit/view/delete screen (period dates,
+  `PayslipEditScreen`); `EmployeeListScreen` is reached from the More tab (and from Business
+  Profile/Settings, which link to it too) rather than the Money tab or a bottom-nav tab of its
+  own — staff management reads as "part of running the business" to a real owner, not a daily
+  transactional workflow like leads or invoices. `PayslipEditScreen` is its own single create/edit/view/delete screen (period dates,
   gross pay, deductions, a live computed net-pay line, "mark as paid today", and a plain-text
   "Share payslip" action via `Intent.ACTION_SEND` — no PDF, same as quote/invoice "Send").
   `ui/compliance/ComplianceEditScreen` is the same pattern again (category, title, due date, a
@@ -118,10 +128,11 @@ android/
   "Add the next reminder?" dialog pre-filled at a category-typical interval (computed purely
   client-side, see `ComplianceEditViewModel`'s `suggestedNextItem`) — the owner must tap "Add"
   for it to actually be created, nothing happens automatically. `ComplianceListScreen`, like
-  `EmployeeListScreen`, is reached from Business Profile/Settings; both screens carry the
-  on-screen reminder that OPS tracks deadlines but never files anything with SARS or CIPC.
-  `ui/reports/ReportsScreen` is the app's fifth bottom-nav destination — one scrollable screen,
-  no further navigation — showing profit by month (last six calendar months, oldest first),
+  `EmployeeListScreen`, is reached from the More tab (and Business Profile/Settings); both
+  screens carry the on-screen reminder that OPS tracks deadlines but never files anything with
+  SARS or CIPC.
+  `ui/reports/ReportsScreen` — one scrollable screen, no further navigation — showing profit
+  by month (last six calendar months, oldest first),
   biggest expense categories this month, and VAT collected vs paid this month. Every figure is
   computed by `ReportsViewModel` directly from data three existing repositories
   (`PaymentRepository`, `ExpenseRepository`, `InvoiceRepository`) already have synced into Room
@@ -130,6 +141,22 @@ android/
   collected) closely enough that the two agree, without needing to be byte-exact the way
   VAT/net-pay math does — see "What was verified" below for why this stayed out of
   `core-domain`.
+  **Phase 3** replaced the bottom nav's Leads/Reports tabs with Schedule and a catch-all More
+  tab: Home/Schedule/Customers/Money/More. Leads and Reports (plus Suppliers/Employees/
+  Compliance/Business profile) moved to `ui/more/MoreScreen` — a stateless list of
+  destinations, no ViewModel — one tap away instead of five tabs' worth of daily-use real
+  estate. Leads isn't demoted from the product's attention even though it lost its tab: Home's
+  "Needs follow-up" section is still the everyday triage surface. `ui/schedule/ScheduleScreen`
+  is the new tab's landing screen — Overdue/Today/Upcoming visits plus a list of open jobs with
+  no visit scheduled yet — and `ui/schedule/VisitDetailScreen` is the field workflow itself:
+  contextual to the visit's own status, so a technician only ever sees the one action that
+  makes sense right now (Start → Add note/Take photo/Complete → Create invoice once the job's
+  done). New visits are scheduled from a job's own detail screen
+  (`ui/schedule/ScheduleVisitScreen`, a short date/time/employee form) rather than a
+  separate job-picker on the Schedule screen — job context is already known there. Home also
+  gained a "Today" section (`HomeUiState.todayVisits`) surfacing today's open visits above
+  "Needs follow-up" — "what should I do next" is the first question a field-service dashboard
+  should answer.
 
 ## Demo script
 
@@ -235,6 +262,16 @@ emulator**, and the proxy that mediates this session's network access explicitly
 proxy), which is where AGP's Gradle plugin coordinates resolve from. Both are expected,
 documented constraints of this environment, not something to work around.
 
+**This section predates `.github/workflows/android-apk.yml`** (added once it became clear the
+`app` module needed a real compiler somewhere, not just careful manual review — see that
+workflow's own header comment). CI now genuinely runs `:app:assembleDebugApk` and the Paparazzi
+screenshot pack on every push to this branch, so "written but NOT compiled or run here" below
+is no longer the full picture — it's still true of *this sandbox*, but the `app` module has
+been compiling and passing its screenshot-render pass in CI since the workflow was added. What
+CI does *not* prove is covered in the workflow's own comment and repeated in each phase's
+milestone report: real device installation, real API connectivity, offline/sync behaviour, and
+camera capture all still require an actual phone.
+
 **Actually run, real output — `core-domain`:**
 
 No `gradlew` wrapper is committed (see below), so this is run with the sandbox's
@@ -248,7 +285,7 @@ BUILD SUCCESSFUL in 20s
 4 actionable tasks: 4 executed
 ```
 
-40 tests, 40 passing, 0 failures, 0 errors — confirmed via both the console output and the
+42 tests, 42 passing, 0 failures, 0 errors — confirmed via both the console output and the
 JUnit XML result files (`core-domain/build/test-results/test/*.xml`), broken down as:
 
 | Test class                     | Tests | Covers |
@@ -257,7 +294,7 @@ JUnit XML result files (`core-domain/build/test-results/test/*.xml`), broken dow
 | `VatInclusiveExtractionTest`    |  5  | Clean multiples of 115 extract exactly, unclean divisions round half-up, not-VAT-applicable and zero-amount both extract R0.00 — mirrors `backend/tests/test_money.py`'s `VatInclusiveExtractionTests` case-for-case |
 | `SyncDecisionTest`              |  5  | No existing row, incoming strictly newer, existing newer (conflict), equal timestamps (conflict — this is also what makes a replayed push idempotent), sub-second precision |
 | `IsoTimestampTest`              |  7  | `Z` suffix never `+00:00` (and never a raw `+` at all), zero-microsecond formatting, round-trip through format+parse, nanosecond truncation, the contract's own example value, no-fraction parsing, defensive offset-form parsing |
-| `EnumsTest`                     | 12  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value, `PayRateType`'s three values match `Employee.PAY_RATE_TYPE_CHOICES`, and (new this milestone) `ComplianceCategory`'s five values match `ComplianceItem.CATEGORY_CHOICES` |
+| `EnumsTest`                     | 14  | Every enum's (incl. `ExpenseCategory`, 14 values) wire values match the Django `choices` list byte-for-byte, `fromWire` round-trips every value, `fromWire` rejects an unknown value, `PayRateType`'s three values match `Employee.PAY_RATE_TYPE_CHOICES`, `ComplianceCategory`'s five values match `ComplianceItem.CATEGORY_CHOICES`, and (Phase 3) `VisitStatus`'s six values match `Visit.STATUS_CHOICES` |
 
 This is the one hard verification gate for this deliverable, and it's genuinely green — not
 asserted, run. The Compliance milestone added one `core-domain` enum (`ComplianceCategory`) and

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ops.app.ui.components.DateField
+import com.ops.app.ui.components.FormSectionLabel
 import com.ops.app.ui.components.SectionHeader
 import com.ops.app.ui.components.TotalsLine
 import com.ops.app.ui.components.formatZar
@@ -85,9 +86,10 @@ fun QuoteEditContent(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Customer", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FormSectionLabel("Customer")
             Text(uiState.customerName, style = MaterialTheme.typography.titleMedium)
 
+            FormSectionLabel("Validity")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DateField(
                     "Issue date",
@@ -131,8 +133,7 @@ fun QuoteEditContent(
             }
             OutlinedButton(onClick = onAddLineItem, modifier = Modifier.fillMaxWidth()) { Text("+ Add line item") }
 
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-
+            FormSectionLabel("Totals")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = uiState.isVatApplicable, onCheckedChange = { onUpdate { s -> s.copy(isVatApplicable = it) } })
                 Text("VAT applicable (15%)")
@@ -144,20 +145,22 @@ fun QuoteEditContent(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
+            HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             val totals = uiState.totals
             TotalsLine("Subtotal", formatZar(totals.subtotal))
             TotalsLine("VAT", formatZar(totals.vatAmount))
             TotalsLine("Total", formatZar(totals.total), emphasise = true)
 
-            OutlinedTextField(uiState.notes, { onUpdate { s -> s.copy(notes = it) } }, label = { Text("Notes (optional)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(uiState.terms, { onUpdate { s -> s.copy(terms = it) } }, label = { Text("Terms (optional)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            FormSectionLabel("Notes & terms (optional)")
+            OutlinedTextField(uiState.notes, { onUpdate { s -> s.copy(notes = it) } }, label = { Text("Notes") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(uiState.terms, { onUpdate { s -> s.copy(terms = it) } }, label = { Text("Terms") }, minLines = 2, modifier = Modifier.fillMaxWidth())
 
             Button(
                 onClick = onSave,
                 enabled = !uiState.isSaving,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 24.dp),
-            ) { Text("Save quote") }
+            ) { Text("Save draft") }
         }
     }
 }

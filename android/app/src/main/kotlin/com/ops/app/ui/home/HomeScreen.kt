@@ -51,10 +51,13 @@ import com.ops.app.ui.components.COMPLIANCE_CATEGORY_CHOICES
 import com.ops.app.ui.components.EmptyState
 import com.ops.app.ui.components.SectionHeader
 import com.ops.app.ui.components.StatCard
+import com.ops.app.ui.components.StatusBadge
 import com.ops.app.ui.components.SyncStatusChip
+import com.ops.app.ui.components.VISIT_STATUS_CHOICES
 import com.ops.app.ui.components.formatDate
 import com.ops.app.ui.components.formatZar
 import com.ops.app.ui.components.labelFor
+import com.ops.app.ui.components.visitStatusTone
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -66,6 +69,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenLead: (String) -> Unit,
     onOpenJob: (String) -> Unit,
+    onOpenVisit: (String) -> Unit,
     onOpenCompliance: () -> Unit,
     onNewLead: () -> Unit,
     onNewCustomer: () -> Unit,
@@ -84,6 +88,7 @@ fun HomeScreen(
         onOpenSettings = onOpenSettings,
         onOpenLead = onOpenLead,
         onOpenJob = onOpenJob,
+        onOpenVisit = onOpenVisit,
         onOpenCompliance = onOpenCompliance,
         onNewLead = onNewLead,
         onNewCustomer = onNewCustomer,
@@ -109,6 +114,7 @@ fun HomeContent(
     onOpenSettings: () -> Unit,
     onOpenLead: (String) -> Unit,
     onOpenJob: (String) -> Unit,
+    onOpenVisit: (String) -> Unit,
     onOpenCompliance: () -> Unit,
     onNewLead: () -> Unit,
     onNewCustomer: () -> Unit,
@@ -169,6 +175,21 @@ fun HomeContent(
                         StatCard("Money in", formatZar(uiState.moneyInThisMonth), Modifier.weight(1f))
                         StatCard("Money out", formatZar(uiState.moneyOutThisMonth), Modifier.weight(1f))
                         StatCard("Outstanding", formatZar(uiState.outstandingTotal), Modifier.weight(1f), emphasise = uiState.outstandingTotal.signum() > 0)
+                    }
+                }
+
+                if (uiState.todayVisits.isNotEmpty()) {
+                    item { SectionHeader("Today") }
+                    items(uiState.todayVisits, key = { "visit-${it.visit.id}" }) { row ->
+                        ActionableListRow(
+                            primary = row.customerName.ifBlank { row.jobTitle },
+                            secondary = listOfNotNull(
+                                row.jobTitle.takeIf { it != row.customerName },
+                                row.visit.startTime,
+                            ).joinToString(" · "),
+                            statusBadge = { StatusBadge(labelFor(VISIT_STATUS_CHOICES, row.visit.status), visitStatusTone(row.visit.status)) },
+                            onClick = { onOpenVisit(row.visit.id) },
+                        )
                     }
                 }
 

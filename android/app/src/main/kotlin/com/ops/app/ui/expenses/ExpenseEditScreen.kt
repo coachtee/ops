@@ -53,8 +53,8 @@ import com.ops.app.data.local.entities.SupplierEntity
 import com.ops.app.ui.components.DateField
 import com.ops.app.ui.components.EXPENSE_CATEGORY_CHOICES
 import com.ops.app.ui.components.ErrorBanner
+import com.ops.app.ui.components.FormSectionLabel
 import com.ops.app.ui.components.LabeledDropdown
-import com.ops.app.ui.components.SectionHeader
 import com.ops.app.ui.components.SyncStateBadge
 import com.ops.app.ui.components.formatZar
 import kotlinx.coroutines.Dispatchers
@@ -163,14 +163,9 @@ fun ExpenseEditContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             uiState.syncState?.let { SyncStateBadge(it) }
-            if (uiState.syncState != null) {
-                Text(
-                    "This expense is money out — it doesn't need a customer, just what was spent.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
+            // Amount comes first — it's the one fact every expense has, and
+            // the one a technician standing at a till wants to enter fastest.
             OutlinedTextField(
                 value = uiState.amount,
                 onValueChange = { onUpdate { s -> s.copy(amount = it, amountError = null) } },
@@ -178,9 +173,48 @@ fun ExpenseEditContent(
                 isError = uiState.amountError != null,
                 supportingText = uiState.amountError?.let { { Text(it) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                textStyle = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            FormSectionLabel("What was it?")
+            LabeledDropdown(
+                label = "Category",
+                options = EXPENSE_CATEGORY_CHOICES,
+                selected = uiState.category,
+                onSelected = { onUpdate { s -> s.copy(category = it) } },
+            )
+            OutlinedTextField(
+                value = uiState.description,
+                onValueChange = { onUpdate { s -> s.copy(description = it) } },
+                label = { Text("Description") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            FormSectionLabel("When?")
+            DateField(
+                label = "Date",
+                value = uiState.date,
+                onValueChange = { picked -> picked?.let { onUpdate { s -> s.copy(date = it, dateError = null) } } },
+                clearable = false,
+            )
+            uiState.dateError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+
+            FormSectionLabel("Related to")
+            LabeledDropdown(
+                label = "Job / project (optional)",
+                options = listOf(NO_JOB to "None") + jobs.map { it.id to (it.number ?: it.title) },
+                selected = uiState.jobId ?: NO_JOB,
+                onSelected = { onUpdate { s -> s.copy(jobId = it.ifBlank { null }) } },
+            )
+            LabeledDropdown(
+                label = "Supplier (optional)",
+                options = listOf(NO_SUPPLIER to "None") + suppliers.map { it.id to it.name },
+                selected = uiState.supplierId ?: NO_SUPPLIER,
+                onSelected = { onUpdate { s -> s.copy(supplierId = it.ifBlank { null }) } },
+            )
+
+            FormSectionLabel("VAT")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Includes VAT?", modifier = Modifier.weight(1f))
                 Switch(
@@ -196,43 +230,7 @@ fun ExpenseEditContent(
                 )
             }
 
-            LabeledDropdown(
-                label = "Category",
-                options = EXPENSE_CATEGORY_CHOICES,
-                selected = uiState.category,
-                onSelected = { onUpdate { s -> s.copy(category = it) } },
-            )
-
-            DateField(
-                label = "Date",
-                value = uiState.date,
-                onValueChange = { picked -> picked?.let { onUpdate { s -> s.copy(date = it, dateError = null) } } },
-                clearable = false,
-            )
-            uiState.dateError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-
-            OutlinedTextField(
-                value = uiState.description,
-                onValueChange = { onUpdate { s -> s.copy(description = it) } },
-                label = { Text("Description") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            LabeledDropdown(
-                label = "Job / project (optional)",
-                options = listOf(NO_JOB to "None") + jobs.map { it.id to (it.number ?: it.title) },
-                selected = uiState.jobId ?: NO_JOB,
-                onSelected = { onUpdate { s -> s.copy(jobId = it.ifBlank { null }) } },
-            )
-
-            LabeledDropdown(
-                label = "Supplier (optional)",
-                options = listOf(NO_SUPPLIER to "None") + suppliers.map { it.id to it.name },
-                selected = uiState.supplierId ?: NO_SUPPLIER,
-                onSelected = { onUpdate { s -> s.copy(supplierId = it.ifBlank { null }) } },
-            )
-
-            SectionHeader("Receipt")
+            FormSectionLabel("Receipt")
             when {
                 uiState.expenseId == null -> Text(
                     "Save this expense first, then add a photo of the receipt.",

@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ops.app.ui.components.DateField
+import com.ops.app.ui.components.FormSectionLabel
 import com.ops.app.ui.components.LabeledDropdown
 import com.ops.app.ui.components.PAYMENT_METHOD_CHOICES
 import com.ops.app.ui.components.StatCard
@@ -76,7 +77,7 @@ fun RecordPaymentContent(
             modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("From", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FormSectionLabel("From")
             Text(uiState.customerName, style = MaterialTheme.typography.titleMedium)
 
             if (uiState.invoiceNumber != null) {
@@ -94,11 +95,13 @@ fun RecordPaymentContent(
                 }
             }
 
+            FormSectionLabel("Payment details")
             OutlinedTextField(
                 value = uiState.amount,
                 onValueChange = { onUpdate { s -> s.copy(amount = it) } },
                 label = { Text("Amount (R)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                textStyle = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.fillMaxWidth(),
             )
             LabeledDropdown("Method", PAYMENT_METHOD_CHOICES, uiState.method, { onUpdate { s -> s.copy(method = it) } })

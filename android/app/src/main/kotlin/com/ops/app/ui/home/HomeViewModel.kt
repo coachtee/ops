@@ -7,16 +7,20 @@ import com.ops.app.data.local.entities.JobEntity
 import com.ops.app.data.local.entities.LeadEntity
 import com.ops.app.data.repository.BusinessRepository
 import com.ops.app.data.repository.ComplianceItemRepository
+import com.ops.app.data.repository.CustomerRepository
 import com.ops.app.data.repository.ExpenseRepository
 import com.ops.app.data.repository.InvoiceRepository
 import com.ops.app.data.repository.JobRepository
 import com.ops.app.data.repository.LeadRepository
 import com.ops.app.data.repository.PaymentRepository
+import com.ops.app.data.repository.VisitRepository
 import com.ops.app.data.sync.SyncChipState
 import com.ops.app.data.sync.SyncManager
+import com.ops.app.ui.schedule.ScheduleVisitRow
 import com.ops.coredomain.InvoiceStatus
 import com.ops.coredomain.JobStatus
 import com.ops.coredomain.LeadStatus
+import com.ops.coredomain.VisitStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +39,10 @@ data class HomeUiState(
     /** This month's expenses — the "money out" half of the same picture. */
     val moneyOutThisMonth: BigDecimal = BigDecimal.ZERO,
     val outstandingTotal: BigDecimal = BigDecimal.ZERO,
+    /** Open visits scheduled for today, soonest first — "what should I do
+     * next" is the first question a field-service owner asks Home, ahead
+     * of who to follow up with. */
+    val todayVisits: List<ScheduleVisitRow> = emptyList(),
     val leadsNeedingFollowUp: List<LeadEntity> = emptyList(),
     val activeJobs: List<JobEntity> = emptyList(),
     /** The single soonest-due, not-yet-completed compliance item, shown
@@ -46,12 +54,17 @@ data class HomeUiState(
 )
 
 private const val COMPLIANCE_LOOKAHEAD_DAYS = 14L
+private val TODAY_VISIT_STATUSES = setOf(
+    VisitStatus.SCHEDULED.wire, VisitStatus.EN_ROUTE.wire, VisitStatus.IN_PROGRESS.wire, VisitStatus.NEEDS_FOLLOW_UP.wire,
+)
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     businessRepository: BusinessRepository,
     leadRepository: LeadRepository,
     jobRepository: JobRepository,
+    customerRepository: CustomerRepository,
+    visitRepository: VisitRepository,
     invoiceRepository: InvoiceRepository,
     paymentRepository: PaymentRepository,
     expenseRepository: ExpenseRepository,
@@ -74,11 +87,17 @@ class HomeViewModel @Inject constructor(
         expenseRepository.observeAll(),
     ) { invoices, payments, expenses -> Triple(invoices, payments, expenses) }
 
+    private val schedule = combine(
+        visitRepository.observeAll(),
+        customerRepository.observeAll(),
+    ) { visits, customers -> Pair(visits, customers) }
+
     val uiState: StateFlow<HomeUiState> = combine(
         businessLeadsJobs,
         invoicesPaymentsExpenses,
         complianceItemRepository.observeAll(),
-    ) { (business, leads, jobs), (invoices, payments, expenses), complianceItems ->
+        schedule,
+    ) { (business, leads, jobs), (invoices, payments, expenses), complianceItems, (visits, customers) ->
         val today = LocalDate.now()
         val thisMonth = YearMonth.now()
 
@@ -115,11 +134,24 @@ class HomeViewModel @Inject constructor(
 
         val active = jobs.filter { it.status == JobStatus.NOT_STARTED.wire || it.status == JobStatus.IN_PROGRESS.wire }
 
+        val jobsById = jobs.associateBy { it.id }
+        val customersById = customers.associateBy { it.id }
+        val todayStr = today.toString()
+        val todayVisits = visits
+            .filter { it.scheduledDate == todayStr && it.status in TODAY_VISIT_STATUSES }
+            .mapNotNull { visit ->
+                val job = jobsById[visit.jobId] ?: return@mapNotNull null
+                val customer = customersById[job.customerId]
+                ScheduleVisitRow(visit, job.number ?: job.title, customer?.name.orEmpty())
+            }
+            .sortedBy { it.visit.startTime ?: "" }
+
         HomeUiState(
             businessName = business?.name.orEmpty(),
             moneyInThisMonth = moneyIn,
             moneyOutThisMonth = moneyOut,
             outstandingTotal = outstanding,
+            todayVisits = todayVisits,
             leadsNeedingFollowUp = followUpDue,
             activeJobs = active,
             upcomingComplianceItem = upcomingCompliance,

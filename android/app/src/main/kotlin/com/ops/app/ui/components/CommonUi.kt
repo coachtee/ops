@@ -64,3 +64,18 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
         modifier = modifier.padding(top = 16.dp, bottom = 8.dp),
     )
 }
+
+/** A quiet, all-caps grouping label for one step inside a longer form — e.g.
+ * "WHAT WAS IT?" / "WHEN?" / "RELATED TO" on the Expense form. Lighter-weight
+ * than [SectionHeader] (which titles a whole screen section, like "Notes" on
+ * the Visit screen); this exists so a single form can be split into a short
+ * workflow instead of reading as one flat Label/Field/Label/Field stack. */
+@Composable
+fun FormSectionLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(top = 20.dp, bottom = 4.dp),
+    )
+}
