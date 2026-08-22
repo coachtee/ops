@@ -15,12 +15,19 @@ object OpsDestinations {
 
     // Bottom nav destinations
     const val HOME = "home"
-    const val LEADS = "leads"
+    const val SCHEDULE = "schedule"
     /** Base path (no args) — for matching the current route to highlight the
      * Customers bottom nav item regardless of [pickMode]. The real,
      * navigable route is [CUSTOMERS_PICKABLE] below. */
     const val CUSTOMERS_BASE = "customers"
     const val MONEY = "money"
+    /** The fifth bottom-nav slot's landing screen — everything that isn't
+     * frequent enough to earn its own tab (Leads, Reports, Suppliers,
+     * Employees, Compliance, Business profile) lives one tap behind it
+     * instead of crowding the bar. See MoreScreen. */
+    const val MORE = "more"
+
+    const val LEADS = "leads"
     const val REPORTS = "reports"
 
     const val LEAD_NEW = "lead_new"
@@ -51,6 +58,12 @@ object OpsDestinations {
 
     const val JOB_DETAIL = "job_detail/{jobId}"
     fun jobDetail(id: String) = "job_detail/$id"
+
+    const val VISIT_DETAIL = "visit_detail/{visitId}"
+    fun visitDetail(id: String) = "visit_detail/$id"
+
+    const val SCHEDULE_VISIT_NEW = "schedule_visit_new/{jobId}"
+    fun scheduleVisitNew(jobId: String) = "schedule_visit_new/$jobId"
 
     /** jobId/quoteId/invoiceId are [NONE] when absent (new invoice from scratch,
      * or not sourced from a job/quote). */

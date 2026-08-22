@@ -112,6 +112,26 @@ data class JobFieldsDto(
     @SerialName("deleted_at") val serverDeletedAt: String? = null,
 )
 
+/** One scheduled attendance against a [JobFieldsDto] job — see the Visit
+ * model's doc comment (backend/work/models.py) and API_CONTRACT.md's
+ * "visit" field payload. `photo` is read-only, same pattern as
+ * [ExpenseFieldsDto.receiptImage] — see "Visit photo attachment". */
+@Serializable
+data class VisitFieldsDto(
+    @SerialName("job_id") val jobId: String = "",
+    @SerialName("employee_id") val employeeId: String? = null,
+    @SerialName("scheduled_date") val scheduledDate: String = "",
+    @SerialName("start_time") val startTime: String? = null,
+    @SerialName("end_time") val endTime: String? = null,
+    val status: String = "scheduled",
+    val notes: String = "",
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
+    val photo: String? = null,
+    @SerialName("updated_at") val serverUpdatedAt: String? = null,
+    @SerialName("deleted_at") val serverDeletedAt: String? = null,
+)
+
 @Serializable
 data class InvoiceFieldsDto(
     @SerialName("customer_id") val customerId: String = "",

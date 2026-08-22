@@ -17,6 +17,7 @@ import com.ops.app.data.local.entities.PaymentEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.local.entities.SupplierEntity
+import com.ops.app.data.local.entities.VisitEntity
 import com.ops.app.data.sync.SyncChipState
 import com.ops.app.ui.businesssetup.BusinessSetupContent
 import com.ops.app.ui.businesssetup.BusinessSetupForm
@@ -56,6 +57,13 @@ import com.ops.app.ui.reports.ExpenseCategoryRow
 import com.ops.app.ui.reports.MonthlyProfitRow
 import com.ops.app.ui.reports.ReportsContent
 import com.ops.app.ui.reports.ReportsUiState
+import com.ops.app.ui.schedule.ScheduleContent
+import com.ops.app.ui.schedule.ScheduleUiState
+import com.ops.app.ui.schedule.ScheduleVisitContent
+import com.ops.app.ui.schedule.ScheduleVisitRow
+import com.ops.app.ui.schedule.ScheduleVisitUiState
+import com.ops.app.ui.schedule.VisitDetailContent
+import com.ops.app.ui.schedule.VisitDetailUiState
 import com.ops.app.ui.settings.BusinessProfileContent
 import com.ops.app.ui.suppliers.SupplierListContent
 import com.ops.app.ui.theme.OpsTheme
@@ -69,6 +77,7 @@ import com.ops.coredomain.LeadStatus
 import com.ops.coredomain.PayRateType
 import com.ops.coredomain.PaymentMethod
 import com.ops.coredomain.QuoteStatus
+import com.ops.coredomain.VisitStatus
 import org.junit.Rule
 import org.junit.Test
 import java.math.BigDecimal
@@ -272,6 +281,58 @@ class ScreenshotTest {
         ComplianceItemEntity(id = "ci-1", category = ComplianceCategory.PAYE_UIF_SDL.wire, title = "PAYE / UIF / SDL — July 2026", dueDate = "2026-08-07", completedDate = "2026-08-05", isRecurring = true, notes = "", updatedAt = now, syncState = SyncState.SYNCED),
         ComplianceItemEntity(id = "ci-2", category = ComplianceCategory.PAYE_UIF_SDL.wire, title = "PAYE / UIF / SDL — August 2026", dueDate = "2026-09-07", completedDate = null, isRecurring = true, notes = "", updatedAt = now, syncState = SyncState.PENDING),
         ComplianceItemEntity(id = "ci-3", category = ComplianceCategory.CIPC_ANNUAL_RETURN.wire, title = "CIPC annual return", dueDate = "2026-11-30", completedDate = null, isRecurring = true, notes = "", updatedAt = now, syncState = SyncState.SYNCED),
+    )
+
+    private val jobUnscheduled = JobEntity(
+        id = "job-2",
+        customerId = "cust-1",
+        quoteId = null,
+        number = "JOB-0002",
+        title = "Leaking tap — kitchen",
+        description = "",
+        status = JobStatus.NOT_STARTED.wire,
+        startDate = null,
+        dueDate = "2026-08-25",
+        completedDate = null,
+        updatedAt = now,
+        syncState = SyncState.SYNCED,
+    )
+
+    private val visitOverdue = VisitEntity(
+        id = "visit-1", jobId = job.id, employeeId = "emp-1",
+        scheduledDate = "2026-08-19", startTime = "08:00:00", endTime = null,
+        status = VisitStatus.NEEDS_FOLLOW_UP.wire, notes = "Customer wasn't home, need to rebook.",
+        startedAt = "2026-08-19T08:05:00Z", completedAt = null,
+        photoUrl = null, localPhotoPath = null,
+        updatedAt = now, syncState = SyncState.SYNCED,
+    )
+
+    private val visitToday = VisitEntity(
+        id = "visit-2", jobId = job.id, employeeId = "emp-1",
+        scheduledDate = "2026-08-21", startTime = "09:00:00", endTime = null,
+        status = VisitStatus.IN_PROGRESS.wire, notes = "",
+        startedAt = "2026-08-21T09:05:00Z", completedAt = null,
+        photoUrl = null, localPhotoPath = null,
+        updatedAt = now, syncState = SyncState.SYNCED,
+    )
+
+    private val visitUpcoming = VisitEntity(
+        id = "visit-3", jobId = job.id, employeeId = null,
+        scheduledDate = "2026-08-25", startTime = "13:00:00", endTime = null,
+        status = VisitStatus.SCHEDULED.wire, notes = "",
+        startedAt = null, completedAt = null,
+        photoUrl = null, localPhotoPath = null,
+        updatedAt = now, syncState = SyncState.SYNCED,
+    )
+
+    private val visitCompleted = VisitEntity(
+        id = "visit-4", jobId = job.id, employeeId = "emp-1",
+        scheduledDate = "2026-08-20", startTime = "10:00:00", endTime = "11:30:00",
+        status = VisitStatus.COMPLETED.wire, notes = "Replaced geyser, tested hot water at all outlets. No leaks.",
+        startedAt = "2026-08-20T10:05:00Z", completedAt = "2026-08-20T11:32:00Z",
+        photoUrl = null, localPhotoPath = "/data/user/0/com.ops.app/files/visit_photos/visit-4.jpg",
+        photoSyncState = ReceiptSyncState.UPLOADED,
+        updatedAt = now, syncState = SyncState.SYNCED,
     )
 
     // ---- Screens ----------------------------------------------------------
@@ -650,6 +711,76 @@ class ScreenshotTest {
                     ),
                     onBack = {}, onOpenQuote = {}, onOpenJob = {}, onOpenInvoice = {},
                     onNewQuote = {}, onNewInvoice = {}, onRecordPayment = {}, onUpdateNotes = {},
+                )
+            }
+        }
+    }
+
+    // ---- Phase 3: Scheduling / Job Visits ----------------------------------
+
+    @Test
+    fun `23 schedule`() {
+        paparazzi.snapshot(name = "23-schedule") {
+            OpsTheme {
+                ScheduleContent(
+                    uiState = ScheduleUiState(
+                        overdue = listOf(ScheduleVisitRow(visitOverdue, job.number ?: job.title, customer.name)),
+                        today = listOf(ScheduleVisitRow(visitToday, job.number ?: job.title, customer.name)),
+                        upcoming = listOf(ScheduleVisitRow(visitUpcoming, job.number ?: job.title, customer.name)),
+                        unscheduledJobs = listOf(jobUnscheduled),
+                    ),
+                    onOpenVisit = {}, onOpenJob = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `24 schedule empty state`() {
+        paparazzi.snapshot(name = "24-schedule-empty-state") {
+            OpsTheme {
+                ScheduleContent(
+                    uiState = ScheduleUiState(),
+                    onOpenVisit = {}, onOpenJob = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `25 visit in progress`() {
+        paparazzi.snapshot(name = "25-visit-in-progress") {
+            OpsTheme {
+                VisitDetailContent(
+                    uiState = VisitDetailUiState(visit = visitToday, job = job, customer = customer, employee = employees[0]),
+                    onBack = {}, onStart = {}, onUpdateStatus = {}, onUpdateNotes = {}, onComplete = {},
+                    onRetryPhoto = {}, onCreateInvoice = { _, _ -> }, onTakePhoto = {}, onChoosePhoto = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `26 visit completed`() {
+        paparazzi.snapshot(name = "26-visit-completed") {
+            OpsTheme {
+                VisitDetailContent(
+                    uiState = VisitDetailUiState(visit = visitCompleted, job = job, customer = customer, employee = employees[0]),
+                    onBack = {}, onStart = {}, onUpdateStatus = {}, onUpdateNotes = {}, onComplete = {},
+                    onRetryPhoto = {}, onCreateInvoice = { _, _ -> }, onTakePhoto = {}, onChoosePhoto = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `27 schedule visit`() {
+        paparazzi.snapshot(name = "27-schedule-visit") {
+            OpsTheme {
+                ScheduleVisitContent(
+                    uiState = ScheduleVisitUiState(jobId = job.id, employeeId = null, scheduledDate = "2026-08-25", startTime = null, isSaving = false),
+                    employees = employees,
+                    onBack = {}, onUpdate = {}, onSave = {},
                 )
             }
         }

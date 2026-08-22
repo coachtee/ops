@@ -10,6 +10,7 @@ import com.ops.coredomain.LeadStatus
 import com.ops.coredomain.PayRateType
 import com.ops.coredomain.PaymentMethod
 import com.ops.coredomain.QuoteStatus
+import com.ops.coredomain.VisitStatus
 
 /** Display labels for every core-domain choice enum, paired with the wire
  * value each [com.ops.app.ui.components.LabeledDropdown] needs. Kept
@@ -54,6 +55,15 @@ val JOB_STATUS_CHOICES = listOf(
     JobStatus.IN_PROGRESS.wire to "In progress",
     JobStatus.COMPLETED.wire to "Completed",
     JobStatus.CANCELLED.wire to "Cancelled",
+)
+
+val VISIT_STATUS_CHOICES = listOf(
+    VisitStatus.SCHEDULED.wire to "Scheduled",
+    VisitStatus.EN_ROUTE.wire to "En route",
+    VisitStatus.IN_PROGRESS.wire to "In progress",
+    VisitStatus.COMPLETED.wire to "Completed",
+    VisitStatus.CANCELLED.wire to "Cancelled",
+    VisitStatus.NEEDS_FOLLOW_UP.wire to "Needs follow-up",
 )
 
 val INVOICE_STATUS_CHOICES = listOf(

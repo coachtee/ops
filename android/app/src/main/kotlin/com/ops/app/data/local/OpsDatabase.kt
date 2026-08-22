@@ -16,6 +16,7 @@ import com.ops.app.data.local.dao.PayslipDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
+import com.ops.app.data.local.dao.VisitDao
 import com.ops.app.data.local.entities.BusinessEntity
 import com.ops.app.data.local.entities.ComplianceItemEntity
 import com.ops.app.data.local.entities.CustomerEntity
@@ -30,6 +31,7 @@ import com.ops.app.data.local.entities.PayslipEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.local.entities.SupplierEntity
+import com.ops.app.data.local.entities.VisitEntity
 
 /**
  * Room is the source of truth for every screen — no screen ever waits on the
@@ -63,15 +65,17 @@ import com.ops.app.data.local.entities.SupplierEntity
         EmployeeEntity::class,
         PayslipEntity::class,
         ComplianceItemEntity::class,
+        VisitEntity::class,
     ],
     // v2 added ExpenseEntity; v3 added SupplierEntity + ExpenseEntity.supplierId;
-    // v4 added EmployeeEntity + PayslipEntity; v5 added ComplianceItemEntity.
+    // v4 added EmployeeEntity + PayslipEntity; v5 added ComplianceItemEntity;
+    // v6 added VisitEntity.
     // No migration path is defined for any of these — see DatabaseModule's
     // fallbackToDestructiveMigration(): this app has never shipped, so
     // there's no installed data to preserve. That won't hold once this
     // ships for real; a proper Migration is needed for any schema change
     // after that point.
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class OpsDatabase : RoomDatabase() {
@@ -89,6 +93,7 @@ abstract class OpsDatabase : RoomDatabase() {
     abstract fun employeeDao(): EmployeeDao
     abstract fun payslipDao(): PayslipDao
     abstract fun complianceItemDao(): ComplianceItemDao
+    abstract fun visitDao(): VisitDao
 
     companion object {
         const val DATABASE_NAME = "ops.db"

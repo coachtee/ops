@@ -7,8 +7,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -32,25 +36,31 @@ import java.time.format.DateTimeFormatter
 private val MONTH_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM yyyy")
 
 /**
- * REPORTS bottom-nav tab: one scrollable screen, no further navigation —
- * profit by month, biggest expense categories this month, VAT collected
- * vs paid this month. Every figure here is computed from data already
- * synced locally (see ReportsViewModel), same offline-first way Home's
- * stat cards work — this screen never waits on the network.
+ * Reports — reached from the "More" tab (see OpsDestinations.MORE), one
+ * scrollable screen, no further navigation: profit by month, biggest
+ * expense categories this month, VAT collected vs paid this month. Every
+ * figure here is computed from data already synced locally (see
+ * ReportsViewModel), same offline-first way Home's stat cards work — this
+ * screen never waits on the network.
  */
 @Composable
-fun ReportsScreen(viewModel: ReportsViewModel = hiltViewModel()) {
+fun ReportsScreen(onBack: () -> Unit, viewModel: ReportsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    ReportsContent(uiState)
+    ReportsContent(uiState, onBack)
 }
 
 /** Stateless render of [ReportsScreen] — split out for the screenshot pack
  * (see android/README.md); not called from navigation directly. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportsContent(uiState: ReportsUiState) {
+fun ReportsContent(uiState: ReportsUiState, onBack: () -> Unit = {}) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Reports") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Reports") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") } },
+            )
+        },
     ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             item { SectionHeader("Profit by month") }

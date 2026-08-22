@@ -25,10 +25,14 @@ import com.ops.app.ui.leads.LeadDetailScreen
 import com.ops.app.ui.leads.LeadListScreen
 import com.ops.app.ui.leads.NewLeadScreen
 import com.ops.app.ui.money.MoneyScreen
+import com.ops.app.ui.more.MoreScreen
 import com.ops.app.ui.payments.RecordPaymentScreen
 import com.ops.app.ui.quotes.QuoteEditScreen
 import com.ops.app.ui.quotes.QuotePreviewScreen
 import com.ops.app.ui.reports.ReportsScreen
+import com.ops.app.ui.schedule.ScheduleScreen
+import com.ops.app.ui.schedule.ScheduleVisitScreen
+import com.ops.app.ui.schedule.VisitDetailScreen
 import com.ops.app.ui.settings.BusinessProfileScreen
 import com.ops.app.ui.splash.SplashScreen
 import com.ops.app.ui.suppliers.SupplierEditScreen
@@ -89,6 +93,7 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
 
         composable(OpsDestinations.LEADS) {
             LeadListScreen(
+                onBack = { navController.popBackStack() },
                 onOpenLead = { navController.navigate(OpsDestinations.leadDetail(it)) },
                 onNewLead = { navController.navigate(OpsDestinations.LEAD_NEW) },
             )
@@ -203,6 +208,52 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
                 onCreateInvoice = { customerId, jobId, quoteId ->
                     navController.navigate(OpsDestinations.invoiceEditNew(customerId, jobId, quoteId))
                 },
+                onOpenVisit = { navController.navigate(OpsDestinations.visitDetail(it)) },
+                onScheduleVisit = { jobId -> navController.navigate(OpsDestinations.scheduleVisitNew(jobId)) },
+            )
+        }
+
+        composable(
+            route = OpsDestinations.SCHEDULE_VISIT_NEW,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType }),
+        ) {
+            ScheduleVisitScreen(
+                onBack = { navController.popBackStack() },
+                onSaved = { visitId ->
+                    navController.navigate(OpsDestinations.visitDetail(visitId)) {
+                        popUpTo(OpsDestinations.SCHEDULE_VISIT_NEW) { inclusive = true }
+                    }
+                },
+            )
+        }
+
+        composable(
+            route = OpsDestinations.VISIT_DETAIL,
+            arguments = listOf(navArgument("visitId") { type = NavType.StringType }),
+        ) {
+            VisitDetailScreen(
+                onBack = { navController.popBackStack() },
+                onCreateInvoice = { customerId, jobId, quoteId ->
+                    navController.navigate(OpsDestinations.invoiceEditNew(customerId, jobId, quoteId))
+                },
+            )
+        }
+
+        composable(OpsDestinations.SCHEDULE) {
+            ScheduleScreen(
+                onOpenVisit = { navController.navigate(OpsDestinations.visitDetail(it)) },
+                onOpenJob = { navController.navigate(OpsDestinations.jobDetail(it)) },
+            )
+        }
+
+        composable(OpsDestinations.MORE) {
+            MoreScreen(
+                onOpenLeads = { navController.navigate(OpsDestinations.LEADS) },
+                onOpenReports = { navController.navigate(OpsDestinations.REPORTS) },
+                onOpenSuppliers = { navController.navigate(OpsDestinations.SUPPLIERS) },
+                onOpenEmployees = { navController.navigate(OpsDestinations.EMPLOYEES) },
+                onOpenCompliance = { navController.navigate(OpsDestinations.COMPLIANCE) },
+                onOpenBusinessProfile = { navController.navigate(OpsDestinations.BUSINESS_PROFILE) },
             )
         }
 
@@ -265,7 +316,7 @@ fun OpsNavGraph(navController: NavHostController, modifier: androidx.compose.ui.
         }
 
         composable(OpsDestinations.REPORTS) {
-            ReportsScreen()
+            ReportsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(OpsDestinations.SUPPLIERS) {

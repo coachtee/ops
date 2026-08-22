@@ -9,12 +9,14 @@ import com.ops.app.data.local.entities.InvoiceEntity
 import com.ops.app.data.local.entities.JobEntity
 import com.ops.app.data.local.entities.PaymentEntity
 import com.ops.app.data.local.entities.QuoteEntity
+import com.ops.app.data.local.entities.VisitEntity
 import com.ops.app.data.repository.CustomerRepository
 import com.ops.app.data.repository.ExpenseRepository
 import com.ops.app.data.repository.InvoiceRepository
 import com.ops.app.data.repository.JobRepository
 import com.ops.app.data.repository.PaymentRepository
 import com.ops.app.data.repository.QuoteRepository
+import com.ops.app.data.repository.VisitRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -42,6 +44,7 @@ data class JobDetailUiState(
     val invoices: List<InvoiceEntity> = emptyList(),
     val payments: List<PaymentEntity> = emptyList(),
     val expenses: List<ExpenseEntity> = emptyList(),
+    val visits: List<VisitEntity> = emptyList(),
 ) {
     val jobValue: BigDecimal
         get() = if (invoices.isNotEmpty()) {
@@ -76,6 +79,7 @@ class JobDetailViewModel @Inject constructor(
     invoiceRepository: InvoiceRepository,
     paymentRepository: PaymentRepository,
     expenseRepository: ExpenseRepository,
+    private val visitRepository: VisitRepository,
 ) : ViewModel() {
 
     val jobId: String = checkNotNull(savedStateHandle["jobId"])
@@ -113,8 +117,9 @@ class JobDetailViewModel @Inject constructor(
     val uiState: StateFlow<JobDetailUiState> = combine(
         coreFlow,
         expenseRepository.observeByJobId(jobId),
-    ) { core, expenses ->
-        JobDetailUiState(core.job, core.customer, core.quote, core.invoices, core.payments, expenses)
+        visitRepository.observeByJobId(jobId),
+    ) { core, expenses, visits ->
+        JobDetailUiState(core.job, core.customer, core.quote, core.invoices, core.payments, expenses, visits)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), JobDetailUiState())
 
     fun updateStatus(status: String) {

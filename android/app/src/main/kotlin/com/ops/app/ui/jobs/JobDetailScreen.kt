@@ -39,12 +39,14 @@ import com.ops.app.ui.components.SectionHeader
 import com.ops.app.ui.components.StatCard
 import com.ops.app.ui.components.StatusBadge
 import com.ops.app.ui.components.SyncStateBadge
+import com.ops.app.ui.components.VISIT_STATUS_CHOICES
 import com.ops.app.ui.components.formatDate
 import com.ops.app.ui.components.formatZar
 import com.ops.app.ui.components.invoiceStatusTone
 import com.ops.app.ui.components.jobStatusTone
 import com.ops.app.ui.components.labelFor
 import com.ops.app.ui.components.quoteStatusTone
+import com.ops.app.ui.components.visitStatusTone
 
 @Composable
 fun JobDetailScreen(
@@ -53,6 +55,8 @@ fun JobDetailScreen(
     onOpenQuote: (String) -> Unit,
     onOpenInvoice: (String) -> Unit,
     onCreateInvoice: (customerId: String, jobId: String, quoteId: String?) -> Unit,
+    onOpenVisit: (String) -> Unit,
+    onScheduleVisit: (String) -> Unit,
     viewModel: JobDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -63,6 +67,8 @@ fun JobDetailScreen(
         onOpenQuote = onOpenQuote,
         onOpenInvoice = onOpenInvoice,
         onCreateInvoice = onCreateInvoice,
+        onOpenVisit = onOpenVisit,
+        onScheduleVisit = onScheduleVisit,
         onUpdateStatus = viewModel::updateStatus,
         onUpdateDates = viewModel::updateDates,
     )
@@ -85,6 +91,8 @@ fun JobDetailContent(
     onOpenQuote: (String) -> Unit,
     onOpenInvoice: (String) -> Unit,
     onCreateInvoice: (customerId: String, jobId: String, quoteId: String?) -> Unit,
+    onOpenVisit: (String) -> Unit,
+    onScheduleVisit: (String) -> Unit,
     onUpdateStatus: (String) -> Unit,
     onUpdateDates: (String?, String?) -> Unit,
 ) {
@@ -133,6 +141,22 @@ fun JobDetailContent(
                 DateField("Start date", job.startDate, { onUpdateDates(it, job.dueDate) }, modifier = Modifier.weight(1f))
                 DateField("Due date", job.dueDate, { onUpdateDates(job.startDate, it) }, modifier = Modifier.weight(1f))
             }
+
+            SectionHeader("Visits")
+            if (uiState.visits.isEmpty()) {
+                EmptyState("No visits scheduled", "Tap \"Schedule visit\" to put this job on the calendar.")
+            } else {
+                uiState.visits.forEach { visit ->
+                    ActionableListRow(
+                        primary = "${formatDate(visit.scheduledDate)}${visit.startTime?.let { " at $it" } ?: ""}",
+                        secondary = visit.notes.ifBlank { "Tap to view" },
+                        statusBadge = { StatusBadge(labelFor(VISIT_STATUS_CHOICES, visit.status), visitStatusTone(visit.status)) },
+                        onClick = { onOpenVisit(visit.id) },
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+            }
+            Button(onClick = { onScheduleVisit(job.id) }, modifier = Modifier.fillMaxWidth()) { Text("Schedule visit") }
 
             SectionHeader("Quote")
             val quote = uiState.quote

@@ -7,6 +7,7 @@ object SyncModelKeys {
     const val QUOTE = "quote"
     const val QUOTE_LINE_ITEM = "quote_line_item"
     const val JOB = "job"
+    const val VISIT = "visit"
     const val INVOICE = "invoice"
     const val INVOICE_LINE_ITEM = "invoice_line_item"
     const val PAYMENT = "payment"

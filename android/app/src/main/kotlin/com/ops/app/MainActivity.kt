@@ -7,10 +7,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,20 +49,25 @@ private data class BottomNavItem(val route: String, val label: String, val icon:
 
 private val BOTTOM_NAV_ITEMS = listOf(
     BottomNavItem(OpsDestinations.HOME, "Home", Icons.Filled.Home),
-    BottomNavItem(OpsDestinations.LEADS, "Leads", Icons.Filled.Handshake),
+    BottomNavItem(OpsDestinations.SCHEDULE, "Schedule", Icons.Filled.CalendarMonth),
     BottomNavItem(OpsDestinations.CUSTOMERS_PICKABLE, "Customers", Icons.Filled.Group),
     BottomNavItem(OpsDestinations.MONEY, "Money", Icons.Filled.Payments),
-    BottomNavItem(OpsDestinations.REPORTS, "Reports", Icons.Filled.Assessment),
+    BottomNavItem(OpsDestinations.MORE, "More", Icons.Filled.MoreHoriz),
 )
 
 /**
- * Bottom navigation, five destinations, per DISCOVERY.md section 5's IA
- * (Reports joined as a fifth once it was built — see that section for why
- * it earned top-level placement while Suppliers/Employees/Compliance did
- * not). Shown only on those five top-level screens — every deeper screen
- * (lead detail, quote edit, sync status, ...) is reached by pushing onto
- * the back stack and has its own back arrow, keeping the "nothing nested
- * more than two levels deep" rule visible in the navigation itself.
+ * Bottom navigation, five destinations — Phase 3's navigation audit swapped
+ * Leads and Reports out for Schedule (the new field-workflow entry point,
+ * frequent enough for daily use to deserve the slot Reports — checked far
+ * less often — had) and a catch-all More tab (Leads/Reports/Suppliers/
+ * Employees/Compliance/Business profile). Leads isn't demoted from the
+ * product's own attention either way: Home's "Needs follow-up" section is
+ * still the everyday lead-triage surface; the full list just isn't a tab
+ * of its own any more. Shown only on those five top-level screens — every
+ * deeper screen (lead detail, quote edit, sync status, ...) is reached by
+ * pushing onto the back stack and has its own back arrow, keeping the
+ * "nothing nested more than two levels deep" rule visible in the
+ * navigation itself.
  */
 @Composable
 fun OpsApp() {

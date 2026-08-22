@@ -12,10 +12,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -43,6 +45,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LeadListScreen(
+    onBack: () -> Unit,
     onOpenLead: (String) -> Unit,
     onNewLead: () -> Unit,
     viewModel: LeadListViewModel = hiltViewModel(),
@@ -50,6 +53,7 @@ fun LeadListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LeadListScreenContent(
         uiState = uiState,
+        onBack = onBack,
         onFilterChange = viewModel::setFilter,
         onOpenLead = onOpenLead,
         onNewLead = onNewLead,
@@ -59,11 +63,14 @@ fun LeadListScreen(
 
 /** Full-screen stateless render of [LeadListScreen] (Scaffold chrome +
  * [LeadListContent]) — split out for the screenshot pack (see
- * android/README.md); not called from navigation directly. */
+ * android/README.md); not called from navigation directly. Reached from
+ * the "More" tab (see OpsDestinations.MORE), not the bottom bar directly,
+ * so — unlike in earlier design phases — it needs its own back arrow. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeadListScreenContent(
     uiState: LeadListUiState,
+    onBack: () -> Unit = {},
     onFilterChange: (LeadListFilter) -> Unit,
     onOpenLead: (String) -> Unit,
     onNewLead: () -> Unit,
@@ -82,7 +89,12 @@ fun LeadListScreenContent(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Leads") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Leads") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back") } },
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = onNewLead) { Icon(Icons.Filled.Add, contentDescription = "New lead") }
         },

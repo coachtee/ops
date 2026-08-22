@@ -15,6 +15,7 @@ import com.ops.app.data.local.entities.PayslipEntity
 import com.ops.app.data.local.entities.QuoteEntity
 import com.ops.app.data.local.entities.QuoteLineItemEntity
 import com.ops.app.data.local.entities.SupplierEntity
+import com.ops.app.data.local.entities.VisitEntity
 import com.ops.app.data.remote.dto.ComplianceItemFieldsDto
 import com.ops.app.data.remote.dto.CustomerFieldsDto
 import com.ops.app.data.remote.dto.EmployeeFieldsDto
@@ -29,6 +30,7 @@ import com.ops.app.data.remote.dto.QuoteFieldsDto
 import com.ops.app.data.remote.dto.QuoteLineItemFieldsDto
 import com.ops.app.data.remote.dto.SupplierFieldsDto
 import com.ops.app.data.remote.dto.SyncChangeDto
+import com.ops.app.data.remote.dto.VisitFieldsDto
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 
@@ -286,6 +288,63 @@ fun JobFieldsDto.toEntity(
     startDate = startDate,
     dueDate = dueDate,
     completedDate = completedDate,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    syncState = syncState,
+    syncError = syncError,
+    conflictServerJson = conflictServerJson,
+)
+
+// ---- Visit -----------------------------------------------------------------
+
+fun VisitEntity.toFieldsDto() = VisitFieldsDto(
+    jobId = jobId,
+    employeeId = employeeId,
+    scheduledDate = scheduledDate,
+    startTime = startTime,
+    endTime = endTime,
+    status = status,
+    notes = notes,
+    startedAt = startedAt,
+    completedAt = completedAt,
+    // photo is read-only on the wire — never sent, see API_CONTRACT.md.
+)
+
+fun VisitEntity.toSyncChange(json: Json) = SyncChangeDto(
+    model = SyncModelKeys.VISIT,
+    id = id,
+    updatedAt = updatedAt,
+    deletedAt = deletedAt,
+    fields = json.encodeToJsonElement(toFieldsDto()),
+)
+
+/** Takes [existing] for the same reason [ExpenseFieldsDto.toEntity] does —
+ * the photo-upload phase's local-only state (localPhotoPath/photoSyncState/
+ * photoSyncError) survives being overwritten by wire data that knows
+ * nothing about it. */
+fun VisitFieldsDto.toEntity(
+    id: String,
+    updatedAt: String,
+    deletedAt: String?,
+    syncState: String,
+    syncError: String? = null,
+    conflictServerJson: String? = null,
+    existing: VisitEntity? = null,
+) = VisitEntity(
+    id = id,
+    jobId = jobId,
+    employeeId = employeeId,
+    scheduledDate = scheduledDate,
+    startTime = startTime,
+    endTime = endTime,
+    status = status,
+    notes = notes,
+    startedAt = startedAt,
+    completedAt = completedAt,
+    photoUrl = photo ?: existing?.photoUrl,
+    localPhotoPath = existing?.localPhotoPath,
+    photoSyncState = if (photo != null) ReceiptSyncState.UPLOADED else existing?.photoSyncState ?: ReceiptSyncState.NONE,
+    photoSyncError = if (photo != null) null else existing?.photoSyncError,
     updatedAt = updatedAt,
     deletedAt = deletedAt,
     syncState = syncState,

@@ -11,6 +11,7 @@ import com.ops.app.data.remote.dto.RegisterRequestDto
 import com.ops.app.data.remote.dto.SyncPullResponseDto
 import com.ops.app.data.remote.dto.SyncPushRequestDto
 import com.ops.app.data.remote.dto.SyncPushResponseDto
+import com.ops.app.data.remote.dto.VisitFieldsDto
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.http.Body
@@ -78,4 +79,13 @@ interface OpsApiService {
         @Path("id") id: String,
         @Part receipt: MultipartBody.Part,
     ): ExpenseFieldsDto
+
+    /** Not part of the sync protocol — see API_CONTRACT.md's "Visit photo
+     * attachment". 404s if [id] isn't a visit the server already has. */
+    @Multipart
+    @POST("api/visits/{id}/photo/")
+    suspend fun uploadVisitPhoto(
+        @Path("id") id: String,
+        @Part photo: MultipartBody.Part,
+    ): VisitFieldsDto
 }

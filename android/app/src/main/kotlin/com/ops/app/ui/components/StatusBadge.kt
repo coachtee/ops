@@ -13,6 +13,7 @@ import com.ops.coredomain.InvoiceStatus
 import com.ops.coredomain.JobStatus
 import com.ops.coredomain.LeadStatus
 import com.ops.coredomain.QuoteStatus
+import com.ops.coredomain.VisitStatus
 
 /** OPS Design System v3 — the compact colored pill used for a record's
  * lifecycle status (Lead/Quote/Job/Invoice) everywhere that status appears:
@@ -75,6 +76,14 @@ fun quoteStatusTone(wire: String): StatusTone = when (wire) {
     QuoteStatus.SENT.wire -> StatusTone.ATTENTION
     QuoteStatus.ACCEPTED.wire -> StatusTone.SUCCESS
     QuoteStatus.DECLINED.wire, QuoteStatus.EXPIRED.wire -> StatusTone.CRITICAL
+    else -> StatusTone.NEUTRAL
+}
+
+fun visitStatusTone(wire: String): StatusTone = when (wire) {
+    VisitStatus.SCHEDULED.wire -> StatusTone.NEUTRAL
+    VisitStatus.EN_ROUTE.wire, VisitStatus.IN_PROGRESS.wire -> StatusTone.ATTENTION
+    VisitStatus.COMPLETED.wire -> StatusTone.SUCCESS
+    VisitStatus.CANCELLED.wire, VisitStatus.NEEDS_FOLLOW_UP.wire -> StatusTone.CRITICAL
     else -> StatusTone.NEUTRAL
 }
 

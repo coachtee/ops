@@ -14,6 +14,7 @@ import com.ops.app.data.local.dao.PayslipDao
 import com.ops.app.data.local.dao.QuoteDao
 import com.ops.app.data.local.dao.QuoteLineItemDao
 import com.ops.app.data.local.dao.SupplierDao
+import com.ops.app.data.local.dao.VisitDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -21,7 +22,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Backs the sync status screen: every not-yet-SYNCED row across all 13
+ * Backs the sync status screen: every not-yet-SYNCED row across all 14
  * syncable models, as one flat list, with a retry action and the explicit
  * "Keep mine" / "Use theirs" conflict resolution the brief requires (see
  * DISCOVERY.md section 6 and API_CONTRACT.md's conflict handling) — each
@@ -38,6 +39,7 @@ class SyncStatusRepository @Inject constructor(
     private val quoteDao: QuoteDao,
     private val quoteLineItemDao: QuoteLineItemDao,
     private val jobDao: JobDao,
+    private val visitDao: VisitDao,
     private val invoiceDao: InvoiceDao,
     private val invoiceLineItemDao: InvoiceLineItemDao,
     private val paymentDao: PaymentDao,
@@ -50,6 +52,7 @@ class SyncStatusRepository @Inject constructor(
     private val customerRepository: CustomerRepository,
     private val quoteRepository: QuoteRepository,
     private val jobRepository: JobRepository,
+    private val visitRepository: VisitRepository,
     private val invoiceRepository: InvoiceRepository,
     private val paymentRepository: PaymentRepository,
     private val supplierRepository: SupplierRepository,
@@ -65,6 +68,7 @@ class SyncStatusRepository @Inject constructor(
             quoteDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Quote(it) } },
             quoteLineItemDao.observeUnsynced().map { list -> list.map { SyncStatusItem.QuoteLineItem(it) } },
             jobDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Job(it) } },
+            visitDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Visit(it) } },
             invoiceDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Invoice(it) } },
             invoiceLineItemDao.observeUnsynced().map { list -> list.map { SyncStatusItem.InvoiceLineItem(it) } },
             paymentDao.observeUnsynced().map { list -> list.map { SyncStatusItem.Payment(it) } },
@@ -84,6 +88,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Quote -> quoteRepository.retry(item.id)
             is SyncStatusItem.QuoteLineItem -> quoteRepository.retryLineItem(item.id)
             is SyncStatusItem.Job -> jobRepository.retry(item.id)
+            is SyncStatusItem.Visit -> visitRepository.retry(item.id)
             is SyncStatusItem.Invoice -> invoiceRepository.retry(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.retryLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.retry(item.id)
@@ -103,6 +108,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Quote -> quoteRepository.keepMine(item.id)
             is SyncStatusItem.QuoteLineItem -> quoteRepository.keepMineLineItem(item.id)
             is SyncStatusItem.Job -> jobRepository.keepMine(item.id)
+            is SyncStatusItem.Visit -> visitRepository.keepMine(item.id)
             is SyncStatusItem.Invoice -> invoiceRepository.keepMine(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.keepMineLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.keepMine(item.id)
@@ -122,6 +128,7 @@ class SyncStatusRepository @Inject constructor(
             is SyncStatusItem.Quote -> quoteRepository.useTheirs(item.id)
             is SyncStatusItem.QuoteLineItem -> quoteRepository.useTheirsLineItem(item.id)
             is SyncStatusItem.Job -> jobRepository.useTheirs(item.id)
+            is SyncStatusItem.Visit -> visitRepository.useTheirs(item.id)
             is SyncStatusItem.Invoice -> invoiceRepository.useTheirs(item.id)
             is SyncStatusItem.InvoiceLineItem -> invoiceRepository.useTheirsLineItem(item.id)
             is SyncStatusItem.Payment -> paymentRepository.useTheirs(item.id)
