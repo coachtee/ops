@@ -44,6 +44,7 @@ MODEL_APPLY_ORDER = {
     "employee": 10,
     "payslip": 11,  # after "employee" — a payslip always references one
     "compliance_item": 12,  # no relations to any other model — order doesn't matter, but every model needs an entry
+    "visit": 13,  # after "job" and "employee" — a visit always references a job, optionally an employee
 }
 
 

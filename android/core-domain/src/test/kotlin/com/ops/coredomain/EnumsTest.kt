@@ -49,6 +49,14 @@ class EnumsTest {
     }
 
     @Test
+    fun `visit status wire values match work models Visit STATUS_CHOICES`() {
+        assertEquals(
+            listOf("scheduled", "en_route", "in_progress", "completed", "cancelled", "needs_follow_up"),
+            VisitStatus.entries.map { it.wire },
+        )
+    }
+
+    @Test
     fun `invoice status wire values match finance models Invoice STATUS_CHOICES`() {
         assertEquals(
             listOf("draft", "sent", "partially_paid", "paid", "overdue", "cancelled"),
@@ -93,6 +101,7 @@ class EnumsTest {
         CustomerType.entries.forEach { assertEquals(it, CustomerType.fromWire(it.wire)) }
         QuoteStatus.entries.forEach { assertEquals(it, QuoteStatus.fromWire(it.wire)) }
         JobStatus.entries.forEach { assertEquals(it, JobStatus.fromWire(it.wire)) }
+        VisitStatus.entries.forEach { assertEquals(it, VisitStatus.fromWire(it.wire)) }
         InvoiceStatus.entries.forEach { assertEquals(it, InvoiceStatus.fromWire(it.wire)) }
         PaymentMethod.entries.forEach { assertEquals(it, PaymentMethod.fromWire(it.wire)) }
         ExpenseCategory.entries.forEach { assertEquals(it, ExpenseCategory.fromWire(it.wire)) }

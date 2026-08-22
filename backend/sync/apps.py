@@ -22,8 +22,8 @@ class SyncConfig(AppConfig):
         from people.serializers import EmployeeSerializer, PayslipSerializer
         from sales.models import Quote, QuoteLineItem
         from sales.serializers import QuoteLineItemSerializer, QuoteSerializer
-        from work.models import Job
-        from work.serializers import JobSerializer
+        from work.models import Job, Visit
+        from work.serializers import JobSerializer, VisitSerializer
 
         from . import registry
 
@@ -32,6 +32,7 @@ class SyncConfig(AppConfig):
         registry.register("quote", Quote, QuoteSerializer)
         registry.register("quote_line_item", QuoteLineItem, QuoteLineItemSerializer)
         registry.register("job", Job, JobSerializer)
+        registry.register("visit", Visit, VisitSerializer)
         registry.register("invoice", Invoice, InvoiceSerializer)
         registry.register("invoice_line_item", InvoiceLineItem, InvoiceLineItemSerializer)
         registry.register("payment", Payment, PaymentSerializer)

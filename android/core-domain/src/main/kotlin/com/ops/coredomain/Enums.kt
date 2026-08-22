@@ -8,7 +8,7 @@ package com.ops.coredomain
  *   - LeadSource / LeadStatus     -> backend/crm/models.py (Lead)
  *   - CustomerType                -> backend/crm/models.py (Customer)
  *   - QuoteStatus                 -> backend/sales/models.py (Quote)
- *   - JobStatus                   -> backend/work/models.py (Job)
+ *   - JobStatus / VisitStatus     -> backend/work/models.py (Job, Visit)
  *   - InvoiceStatus / PaymentMethod / ExpenseCategory -> backend/finance/models.py
  *   - PayRateType                 -> backend/people/models.py (Employee)
  *   - ComplianceCategory          -> backend/compliance/models.py (ComplianceItem)
@@ -88,6 +88,22 @@ enum class JobStatus(override val wire: String) : WireEnum {
 
     companion object {
         fun fromWire(wire: String): JobStatus = requireWire(entries.toTypedArray(), wire, "JobStatus")
+    }
+}
+
+/** A single scheduled attendance against a [JobStatus] job — a job can have
+ * more than one visit (e.g. a multi-day installation). */
+enum class VisitStatus(override val wire: String) : WireEnum {
+    SCHEDULED("scheduled"),
+    EN_ROUTE("en_route"),
+    IN_PROGRESS("in_progress"),
+    COMPLETED("completed"),
+    CANCELLED("cancelled"),
+    NEEDS_FOLLOW_UP("needs_follow_up"),
+    ;
+
+    companion object {
+        fun fromWire(wire: String): VisitStatus = requireWire(entries.toTypedArray(), wire, "VisitStatus")
     }
 }
 

@@ -59,22 +59,23 @@ these are used by the Django admin and are convenient for testing). **The Androi
 read/write path is the sync endpoints in the next section** — Room is the source of truth on
 device; these per-resource endpoints are not polled by the app during normal use.
 
-Resources: `leads`, `customers`, `quotes`, `quote-line-items`, `jobs`, `invoices`,
+Resources: `leads`, `customers`, `quotes`, `quote-line-items`, `jobs`, `visits`, `invoices`,
 `invoice-line-items`, `payments`, `expenses`, `suppliers`, `employees`, `payslips`,
 `compliance-items`. Field shapes are exactly the sync `fields` payloads documented below, plus
 the DRF-standard `id`, `created_at`, `updated_at`, `deleted_at`. `expenses` additionally has
 `POST /api/expenses/{id}/receipt/` — see "Expense receipt attachments" at the end of this
-file.
+file; `visits` has the analogous `POST /api/visits/{id}/photo/` — see "Visit photo
+attachment".
 
 ## Sync
 
-Thirteen syncable models in this slice, referenced by these `model` keys:
-`lead`, `customer`, `quote`, `quote_line_item`, `job`, `invoice`, `invoice_line_item`,
+Fourteen syncable models in this slice, referenced by these `model` keys:
+`lead`, `customer`, `quote`, `quote_line_item`, `job`, `visit`, `invoice`, `invoice_line_item`,
 `payment`, `supplier`, `expense`, `employee`, `payslip`, `compliance_item`. All are scoped to
 the caller's business server-side; a client never sends `business`. Note `expense`'s
-`receipt_image` field travels through `GET pull` (so other devices learn a receipt was
-attached) but is never writable through `push` — see "Expense receipt attachments" below for
-how the photo itself gets there.
+`receipt_image` and `visit`'s `photo` fields travel through `GET pull` (so other devices learn
+a photo was attached) but are never writable through `push` — see "Expense receipt
+attachments" and "Visit photo attachment" below for how the photo itself gets there.
 
 ### `POST /api/sync/push/`
 ```json
@@ -152,6 +153,8 @@ it through the same conflict path once the pending push completes.
 **quote_line_item**: `quote_id*, description*, quantity*, unit_price*, line_total(computed), sort_order`
 
 **job**: `customer_id*, quote_id, number(server-assigned, read-only), title*, description, status*(not_started|in_progress|completed|cancelled), start_date, due_date, completed_date`
+
+**visit**: `job_id*, employee_id, scheduled_date*, start_time, end_time, status*(scheduled|en_route|in_progress|completed|cancelled|needs_follow_up), notes, started_at, completed_at, photo(read-only URL or null — see "Visit photo attachment")`. No document number — a visit is scheduling detail under a job, not a customer-facing document. Customer/address are not duplicated on `visit`; read them via the parent job's `customer_id`.
 
 **invoice**: `customer_id*, job_id, quote_id, number(server-assigned, read-only), status*(draft|sent|partially_paid|paid|overdue|cancelled), issue_date*, due_date, notes, terms, is_vat_applicable*, discount_amount, subtotal(computed), vat_amount(computed), total(computed), amount_paid(computed, read-only), sent_at`
 
@@ -233,6 +236,20 @@ not yet uploaded) until its parent expense reports `SYNCED`; only then does the 
 cycle attempt the multipart upload. This ordering is a client-side responsibility — the server
 enforces it passively, by 404ing an upload for an id it doesn't have — not something the sync
 protocol's dependency ordering (which only covers the JSON `changes` batch) handles for you.
+
+## Visit photo attachment
+
+Exactly the same shape as expense receipts above, one photo per visit (a single slot, not a
+gallery — see the `Visit` model's docstring for why this is deliberately simpler than a
+one-to-many attachment model):
+
+### `POST /api/visits/{id}/photo/`
+`multipart/form-data`, one field: `photo` (image, ≤10MB). Requires the visit to already exist
+under the caller's business — `404` otherwise. `200` → the full `VisitSerializer`
+representation, `photo` now a URL. Uploading bumps the visit's `updated_at`, so the photo
+reaches other devices through the normal `GET /api/sync/pull/` path. Same offline-capture
+ordering constraint as expense receipts: a photo taken while offline is held on-device until
+its parent visit's own JSON `push` is `accepted`.
 
 ## Reports
 

@@ -10,6 +10,7 @@ from crm.models import Lead
 from finance.models import Expense, Invoice, Supplier
 from people.models import Employee, Payslip
 from sales.models import Quote
+from work.models import Job, Visit
 
 from .helpers import AuthenticatedAPITestCase
 
@@ -592,3 +593,50 @@ class ComplianceItemSyncTests(AuthenticatedAPITestCase):
         titles = {c["fields"].get("title") for c in response.data["changes"] if c["model"] == "compliance_item"}
         self.assertIn("Mine", titles)
         self.assertNotIn("Not Mine", titles)
+
+
+class VisitSyncTests(AuthenticatedAPITestCase):
+    def push(self, changes):
+        return self.client.post("/api/sync/push/", {"changes": changes}, format="json")
+
+    def test_visit_and_its_job_in_one_batch_regardless_of_order(self):
+        """A visit listed before its not-yet-applied parent job in the same
+        batch must still resolve — MODEL_APPLY_ORDER's whole reason to
+        exist, same as the expense/job case above."""
+        now = timezone.now()
+        job_id = uuid.uuid4()
+        visit_id = uuid.uuid4()
+
+        job_change = change("job", job_id, now, {"customer_id": str(self.customer.id), "title": "Geyser replacement"})
+        visit_change = change("visit", visit_id, now, {"job_id": str(job_id), "scheduled_date": "2026-08-25"})
+
+        response = self.push([visit_change, job_change])
+        self.assertEqual([r["status"] for r in response.data["results"]], ["accepted", "accepted"])
+        self.assertEqual(Visit.objects.get(id=visit_id).job_id, job_id)
+
+    def test_replaying_the_same_visit_push_is_idempotent(self):
+        job = Job.objects.create(business=self.business, customer=self.customer, title="Geyser replacement")
+        now = timezone.now()
+        visit_id = uuid.uuid4()
+        payload = [change("visit", visit_id, now, {"job_id": str(job.id), "scheduled_date": "2026-08-25"})]
+
+        self.push(payload)
+        second = self.push(payload)
+        self.assertEqual(second.data["results"][0]["status"], "conflict")
+        self.assertEqual(Visit.objects.filter(id=visit_id).count(), 1)
+
+    def test_pull_includes_visit_and_scopes_to_business(self):
+        other_client, other_business = self.make_other_business_client()
+        from crm.models import Customer as CustomerModel
+
+        other_customer = CustomerModel.objects.create(business=other_business, name="Other Co", phone="+27000000000")
+        other_job = Job.objects.create(business=other_business, customer=other_customer, title="Other job")
+        Visit.objects.create(business=other_business, job=other_job, scheduled_date="2026-08-25", notes="Not mine")
+
+        job = Job.objects.create(business=self.business, customer=self.customer, title="Geyser replacement")
+        self.push([change("visit", uuid.uuid4(), timezone.now(), {"job_id": str(job.id), "scheduled_date": "2026-08-25", "notes": "Mine"})])
+
+        response = self.client.get("/api/sync/pull/")
+        notes = {c["fields"].get("notes") for c in response.data["changes"] if c["model"] == "visit"}
+        self.assertIn("Mine", notes)
+        self.assertNotIn("Not mine", notes)
