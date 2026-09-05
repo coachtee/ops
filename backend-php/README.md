@@ -54,27 +54,25 @@ written. This mirrors exactly how `../backend/` (Django) itself started — see
 **Not yet ported** (still only in `../backend/`, the Django version): Lead, Quote + line items,
 Job, Visit (+ photo), Invoice + line items, Payment, Supplier, Expense (+ receipt upload,
 VAT-inclusive extraction), Employee, Payslip (net-pay computation), ComplianceItem, the three
-Reports endpoints, and the remaining 13 of 14 sync-registry entries. Money/VAT computation for
-those resources needs its own careful port — see "Money and VAT" below, since `bcmath` isn't
-available in this environment (PHP built from a blocked PPA — see below) and the existing Django
-logic uses Python's arbitrary-precision `Decimal`.
+Reports endpoints, and the remaining 13 of 14 sync-registry entries — actively being ported now,
+following the exact Customer/Auth/Sync pattern established below.
 
 **Django is not yet removed.** `../backend/` still exists, is still the backend the current
 production Android app (if any is deployed) would need, and stays in place until this rewrite
 reaches real parity and Android is repointed at it — see the top-level migration plan for the
 cutover sequencing.
 
-## Money and VAT (once ported)
+## Money and VAT
 
-No `bcmath` extension is installed in this sandbox (`php8.4-bcmath` ships from the
-`ondrej/php` PPA, which this environment's egress policy blocks — confirmed, not
-retried). Plan: represent money as integer cents internally (a well-established, arguably more
-robust pattern than decimal-string arithmetic — see e.g. how Stripe represents amounts) and use
-PHP's native `round()` (default `PHP_ROUND_HALF_UP` mode, matching the Django backend's own
-`ROUND_HALF_UP` rounding rule exactly) for the one place that needs a genuine division — VAT
-extraction (`amount * 15 / 115`). Every other operation (line-item totals, discount, running
-sums) is exact integer arithmetic on cents, never floating point. Document this decision inline
-wherever it's implemented, the same way the Django backend documents its own `Decimal` usage.
+Implemented in `application/helpers/money_helper.php` (autoloaded), ported directly from
+`../backend/common/money.py`. No `bcmath` extension is installed in this sandbox
+(`php8.4-bcmath` ships from the `ondrej/php` PPA, which this environment's egress policy
+blocks — confirmed, not retried), so this uses PHP's native `float` + `round()`
+(`PHP_ROUND_HALF_UP`, PHP's default, matching Python's `Decimal` `ROUND_HALF_UP` exactly) —
+safe here specifically because every function does at most one multiply/divide immediately
+followed by one `round()` to cents, never a chain of unrounded float operations. Verified
+against all 19 of `../backend/tests/test_money.py`'s own assertions, byte-for-byte, including
+the float-precision edge case `compute_line_total("2", "950.005") == "1900.01"`.
 
 ## Production
 
