@@ -23,7 +23,18 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | a PHP script and you can easily do that on your own.
 |
 */
-$config['base_url'] = '';
+/**
+ * Left blank, CI3 auto-detects this from $_SERVER['SERVER_ADDR'] — which
+ * PHP's built-in `php -S` dev server (see router.php) does not reliably
+ * set, silently falling back to the hardcoded 'http://localhost/' instead
+ * of the host actually being tested against. That breaks every
+ * base_url()/site_url() link (assets, uploads, redirects, sidebar nav) the
+ * moment the dev server isn't literally on localhost:80 — set
+ * OPS_BASE_URL for local dev/test (e.g. http://127.0.0.1:8080) to bypass
+ * the broken auto-detection; a real deployment behind Apache/nginx sets
+ * SERVER_ADDR correctly and can leave this unset.
+ */
+$config['base_url'] = getenv('OPS_BASE_URL') ?: '';
 
 /*
 |--------------------------------------------------------------------------
