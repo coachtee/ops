@@ -1,0 +1,35 @@
+# Apache equivalent of router.php's rewrite-to-index.php behaviour (that
+# file exists only for PHP's built-in `php -S` dev server, which has no
+# mod_rewrite of its own — see its own doc comment). A real Apache host
+# (cPanel's default) uses this instead.
+#
+# The first two rules block direct browser access to /system and
+# /application — those folders must never be served as plain files (a
+# request for e.g. /application/config/database.php would otherwise leak
+# DB credentials). If you move system/ and application/ one level above
+# this docroot (CodeIgniter's own recommended split — see
+# docs/CPANEL_DEPLOY.md's "Optional hardening"), these two rules become
+# unnecessary but harmless.
+<IfModule mod_rewrite.c>
+	RewriteEngine On
+
+	RewriteCond %{REQUEST_URI} ^/system.*
+	RewriteRule ^(.*)$ index.php?/$1 [L]
+
+	RewriteCond %{REQUEST_URI} ^/application.*
+	RewriteRule ^(.*)$ index.php?/$1 [L]
+
+	RewriteCond %{REQUEST_FILENAME} !-f
+	RewriteCond %{REQUEST_FILENAME} !-d
+	RewriteRule ^(.*)$ index.php?/$1 [L,QSA]
+</IfModule>
+<IfModule !mod_rewrite.c>
+	ErrorDocument 404 /index.php
+</IfModule>
+
+# Extra belt-and-braces in case mod_rewrite is ever disabled for this
+# vhost: deny direct access outright rather than relying only on the
+# rewrite rules above.
+<FilesMatch "\.(env|log)$">
+	Require all denied
+</FilesMatch>

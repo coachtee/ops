@@ -89,19 +89,28 @@ the float-precision edge case `compute_line_total("2", "950.005") == "1900.01"`.
 
 ## Production
 
-Not deployed anywhere — see `../android/README.md`'s "No staging/production server exists yet"
-section for what a real deployment needs (domain, DNS, TLS, a real web server in front of PHP).
+See `docs/CPANEL_DEPLOY.md` for a full step-by-step guide to deploying this on shared cPanel
+hosting with **no Terminal/SSH access** (File Manager + phpMyAdmin only) — includes a
+ready-to-import `docs/CPANEL_SCHEMA.sql` schema dump (since `php index.php migrate` needs a
+shell) and instructions for packaging a Composer-built `vendor/` for upload (since there's no
+Composer on the host either).
+
 Business logo upload (`PATCH /api/business/me/` with a multipart body — see
 `application/helpers/multipart_helper.php`'s doc comment for why PHP needs this hand-parsed:
 it only auto-parses multipart bodies for POST, not PATCH) is implemented and tested — see
 `tests/BusinessLogoTest.php`.
 
 `OPS_SECRET_KEY` (JWT signing secret, mirrors Django's `OPS_SECRET_KEY`) MUST be set to a real
-random value for any shared/staging/production run — `application/config/config.php`'s
-`encryption_key` falls back to an insecure placeholder for zero-config local dev only, same
-"loud failure, not a silent insecure default" principle `../backend/ops/settings.py` established
-(that file's own guard doesn't carry over automatically — this PHP backend needs its own
-equivalent startup check before it's exposed anywhere real; not yet added).
+random value for any shared/staging/production run. `application/config/config.php` now
+**refuses to run at all** (a clear `FATAL:` 500 response, not a silent insecure default) if
+`ENVIRONMENT !== 'development'` and this is still the placeholder — the same "loud failure, not
+a silent insecure default" principle `../backend/ops/settings.py` established for Django,
+verified working in both directions (refuses without a real key, runs normally with one).
+
+Every `OPS_*` config value is read through `application/config/env.php`'s `ops_env()`, which
+checks `getenv()` then falls back to `$_SERVER`/`$_ENV` — needed because a shared Apache host's
+`.htaccess` `SetEnv` directive (the only way to set "environment variables" without shell
+access) reliably populates `$_SERVER` but not always `getenv()`.
 
 ## Web admin panel
 

@@ -52,8 +52,17 @@
  *     production
  *
  * NOTE: If you change these, also change the error_reporting() code below
+ *
+ * Checks getenv() first, then $_SERVER — a real Apache/cPanel deployment's
+ * `SetEnv CI_ENV production` (see .htaccess / docs/CPANEL_DEPLOY.md)
+ * populates $_SERVER but PHP's built-in `php -S` dev server (see
+ * router.php) does not forward an inherited shell env var into $_SERVER
+ * for a request, only getenv() sees it there — same reasoning as
+ * application/config/env.php's ops_env(), which isn't loaded yet this
+ * early in the bootstrap.
  */
-	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development');
+	$ci_env = getenv('CI_ENV');
+	define('ENVIRONMENT', $ci_env !== FALSE && $ci_env !== '' ? $ci_env : (isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development'));
 
 /*
  *---------------------------------------------------------------

@@ -1,5 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
+require_once __DIR__.'/env.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -34,7 +35,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * the broken auto-detection; a real deployment behind Apache/nginx sets
  * SERVER_ADDR correctly and can leave this unset.
  */
-$config['base_url'] = getenv('OPS_BASE_URL') ?: '';
+$config['base_url'] = ops_env('OPS_BASE_URL', '');
 
 /*
 |--------------------------------------------------------------------------
@@ -340,7 +341,22 @@ $config['cache_query_string'] = FALSE;
 // JWT signing secret — mirrors OPS_SECRET_KEY's role in the Django backend
 // this replaces: an insecure placeholder for local dev, MUST be overridden
 // via env var for any shared/staging/production run. See Auth_lib.
-$config['encryption_key'] = getenv('OPS_SECRET_KEY') ?: 'dev-only-insecure-secret-key-change-me';
+$config['encryption_key'] = ops_env('OPS_SECRET_KEY', 'dev-only-insecure-secret-key-change-me');
+
+// Loud failure, not a silent insecure default — the same principle
+// ../backend/ops/settings.py's own SECRET_KEY guard established. Every
+// JWT this app issues is only as trustworthy as this key; a production
+// run left on the placeholder would let anyone forge a valid access
+// token for any business. ENVIRONMENT is set via the CI_ENV env var /
+// .htaccess SetEnv (see index.php) — it must be explicitly set to
+// something other than 'development' for a real deployment (see
+// docs/CPANEL_DEPLOY.md).
+if (ENVIRONMENT !== 'development' && $config['encryption_key'] === 'dev-only-insecure-secret-key-change-me')
+{
+	http_response_code(500);
+	exit('FATAL: OPS_SECRET_KEY is not set (or CI_ENV is not "development"). Refusing to run with the '
+		.'insecure default JWT signing key outside local development — see docs/CPANEL_DEPLOY.md.');
+}
 
 /*
 |--------------------------------------------------------------------------
