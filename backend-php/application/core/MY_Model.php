@@ -84,4 +84,15 @@ class Business_owned_model extends MY_Model {
 		$this->db->where('id', $id)->where('business_id', $business_id)
 			->update($this->table, array('deleted_at' => $now, 'updated_at' => $now));
 	}
+
+	/** Mirrors Django's `model_cls.objects.filter(id=record_id).exclude(business=business).exists()`
+	 * guard in sync/services.py::apply_change() — client-generated UUIDs are
+	 * assumed collision-free, but if two businesses' devices ever generated
+	 * the same id, the second one must be rejected rather than silently
+	 * overwriting/adopting the first business's row. */
+	public function used_by_other_business($id, $business_id)
+	{
+		return $this->db->where('id', $id)->where('business_id !=', $business_id)
+			->get($this->table)->num_rows() > 0;
+	}
 }

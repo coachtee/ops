@@ -36,26 +36,35 @@ against the shared dev database — there's no separate ephemeral test database 
 test runner gave us, since PHPUnit here doesn't manage schema/fixtures itself. See
 `tests/ApiTestCase.php`.
 
-Current coverage: health check, register (success + duplicate-email + short-password
-rejection), login (success + wrong password), refresh (+ rejecting an access token used as a
-refresh token), auth-required rejection (missing/garbage token), cross-tenant scoping (a
-business cannot read, update, or list another business's customers), and the sync protocol
-(push accepted, pull returns it, idempotent replay reports `conflict` not a duplicate, a
-genuinely newer update wins, pull never leaks another business's rows).
+Current coverage (49 tests): health check, register/login/refresh, auth-required rejection,
+cross-tenant scoping, the sync protocol (push/pull/conflict/idempotency/last-write-wins), quote
++ job + invoice document numbering (sequential, per-business, assigned once on first successful
+sync and never reassigned), quote/invoice totals recomputed from line items (including a
+soft-deleted line item correctly dropping back out of the total), the invoice payment-state
+machine (sent → partially_paid → paid, and back down on a reversed payment, with cancelled
+invoices never touched), expense VAT-inclusive extraction + validation (amount > 0, date ≤
+tomorrow), payslip net-pay + validation (deductions ≤ gross, period_end ≥ period_start), visit
+photo upload, and all three Reports endpoints (including CSV export and the this_month/all_time
+expense-category split).
 
 ## What's ported so far
 
-Only **auth (register/login/refresh) + Business (read/update) + Customer (CRUD + sync)** — a
-complete, proven vertical slice: JWT issue/verify, tenant scoping via Membership, the full sync
-push/pull/conflict/idempotency protocol, all verified against a real MariaDB instance, not just
-written. This mirrors exactly how `../backend/` (Django) itself started — see
-`../docs/DISCOVERY.md`.
+**Everything in docs/API_CONTRACT.md**: Auth, Business, Customer, Lead, Quote + QuoteLineItem,
+Job, Visit (+ photo upload), Invoice + InvoiceLineItem, Payment, Supplier, Expense (+ receipt
+upload), Employee, Payslip, ComplianceItem, the full 14-model sync push/pull protocol with its
+post-batch recompute (document numbering + quote/invoice totals + invoice payment state — see
+`application/controllers/Sync.php`), and the three Reports endpoints. This mirrors
+`../backend/` (Django)'s own resource set field-for-field — see each `application/models/*.php`
+file's doc comment for the exact Django source it ports.
 
-**Not yet ported** (still only in `../backend/`, the Django version): Lead, Quote + line items,
-Job, Visit (+ photo), Invoice + line items, Payment, Supplier, Expense (+ receipt upload,
-VAT-inclusive extraction), Employee, Payslip (net-pay computation), ComplianceItem, the three
-Reports endpoints, and the remaining 13 of 14 sync-registry entries — actively being ported now,
-following the exact Customer/Auth/Sync pattern established below.
+**Known simplifications versus the Django version** (acceptable for this rewrite's scope,
+documented rather than silently done): the direct per-resource CRUD controllers (`/api/quotes/`,
+`/api/payments/`, etc. — "convenience reads/writes... not the app's main sync path" per
+API_CONTRACT.md) do not run the cross-record recompute cascade (parent quote/invoice totals,
+payment-state) that `Sync::push_post()` runs after every batch; only the sync path does. Deep
+cross-tenant foreign-key validation (e.g. "this expense's job_id must belong to the same
+business") is not enforced beyond the existing per-resource tenant scoping. Neither gap is
+exercised by the Android app, which only ever writes through sync.
 
 **Django is not yet removed.** `../backend/` still exists, is still the backend the current
 production Android app (if any is deployed) would need, and stays in place until this rewrite

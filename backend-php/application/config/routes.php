@@ -66,5 +66,49 @@ $route['api/auth/refresh'] = 'auth/refresh';
 $route['api/business/me'] = 'business/me';
 $route['api/customers'] = 'customers/index';
 $route['api/customers/(:any)'] = 'customers/index/$1';
+
+$route['api/leads'] = 'leads/index';
+$route['api/leads/(:any)'] = 'leads/index/$1';
+
+$route['api/quotes'] = 'quotes/index';
+$route['api/quotes/(:any)'] = 'quotes/index/$1';
+$route['api/quote-line-items'] = 'quote_line_items/index';
+$route['api/quote-line-items/(:any)'] = 'quote_line_items/index/$1';
+
+$route['api/jobs'] = 'jobs/index';
+$route['api/jobs/(:any)'] = 'jobs/index/$1';
+
+$route['api/visits/(:any)/photo'] = 'visits/photo/$1';
+$route['api/visits'] = 'visits/index';
+$route['api/visits/(:any)'] = 'visits/index/$1';
+
+$route['api/invoices'] = 'invoices/index';
+$route['api/invoices/(:any)'] = 'invoices/index/$1';
+$route['api/invoice-line-items'] = 'invoice_line_items/index';
+$route['api/invoice-line-items/(:any)'] = 'invoice_line_items/index/$1';
+
+$route['api/payments'] = 'payments/index';
+$route['api/payments/(:any)'] = 'payments/index/$1';
+
+$route['api/suppliers'] = 'suppliers/index';
+$route['api/suppliers/(:any)'] = 'suppliers/index/$1';
+
+$route['api/expenses/(:any)/receipt'] = 'expenses/receipt/$1';
+$route['api/expenses'] = 'expenses/index';
+$route['api/expenses/(:any)'] = 'expenses/index/$1';
+
+$route['api/employees'] = 'employees/index';
+$route['api/employees/(:any)'] = 'employees/index/$1';
+
+$route['api/payslips'] = 'payslips/index';
+$route['api/payslips/(:any)'] = 'payslips/index/$1';
+
+$route['api/compliance-items'] = 'compliance_items/index';
+$route['api/compliance-items/(:any)'] = 'compliance_items/index/$1';
+
+$route['api/reports/profit-summary'] = 'reports/profit_summary';
+$route['api/reports/expense-categories'] = 'reports/expense_categories';
+$route['api/reports/vat-summary'] = 'reports/vat_summary';
+
 $route['api/sync/push'] = 'sync/push';
 $route['api/sync/pull'] = 'sync/pull';

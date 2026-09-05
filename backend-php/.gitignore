@@ -3,3 +3,5 @@
 application/logs/*.log
 application/cache/*
 !application/cache/index.html
+/uploads/*
+!/uploads/.gitkeep

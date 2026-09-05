@@ -6,11 +6,6 @@
  * scoping on pull. */
 final class SyncTest extends ApiTestCase {
 
-	private function iso_now()
-	{
-		return gmdate('Y-m-d\TH:i:s.000000\Z');
-	}
-
 	public function test_push_accepts_a_new_customer()
 	{
 		$owner = $this->register_test_business();
@@ -103,13 +98,5 @@ final class SyncTest extends ApiTestCase {
 		$pull_b = $this->request('GET', '/api/sync/pull/', null, $owner_b['access']);
 		$ids = array_column($pull_b['body']['changes'], 'id');
 		$this->assertNotContains($id, $ids);
-	}
-
-	private function uuid()
-	{
-		$data = random_bytes(16);
-		$data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
-		$data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
-		return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
 	}
 }
