@@ -87,6 +87,11 @@ the float-precision edge case `compute_line_total("2", "950.005") == "1900.01"`.
 
 Not deployed anywhere — see `../android/README.md`'s "No staging/production server exists yet"
 section for what a real deployment needs (domain, DNS, TLS, a real web server in front of PHP).
+Business logo upload (`PATCH /api/business/me/` with a multipart body — see
+`application/helpers/multipart_helper.php`'s doc comment for why PHP needs this hand-parsed:
+it only auto-parses multipart bodies for POST, not PATCH) is implemented and tested — see
+`tests/BusinessLogoTest.php`.
+
 `OPS_SECRET_KEY` (JWT signing secret, mirrors Django's `OPS_SECRET_KEY`) MUST be set to a real
 random value for any shared/staging/production run — `application/config/config.php`'s
 `encryption_key` falls back to an insecure placeholder for zero-config local dev only, same
