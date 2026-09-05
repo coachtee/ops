@@ -16,6 +16,10 @@ php index.php migrate
 php -S 127.0.0.1:8080 router.php   # dev only — see "Production" below for real deployment
 ```
 
+The JSON API Android talks to lives under `/api/*`. Visiting `/` in a browser goes to the web
+admin panel (see "Web admin panel" below) — register a business via `POST /api/auth/register/`
+first (there's no web-based sign-up yet), then log in at `/login` with that email/password.
+
 `router.php` exists only because PHP's built-in server has no mod_rewrite of its own; a real
 deployment serves this through Apache/nginx with URL rewriting to `index.php`, same as any CI3
 app (Perfex CRM included).
@@ -98,6 +102,28 @@ random value for any shared/staging/production run — `application/config/confi
 "loud failure, not a silent insecure default" principle `../backend/ops/settings.py` established
 (that file's own guard doesn't carry over automatically — this PHP backend needs its own
 equivalent startup check before it's exposed anywhere real; not yet added).
+
+## Web admin panel
+
+A server-rendered, Bootstrap-based admin panel in the same general genre as Perfex CRM's own
+panel (dark icon sidebar, light card-based content, a slim topbar) — an **original layout**
+built for this app from scratch, not copied from Perfex's actual theme assets/CSS/icons.
+Session-cookie login (`/login`, `/logout`), completely separate from the JWT Android uses (see
+`Web_Controller`'s doc comment in `application/core/MY_Controller.php`) — matching how Perfex
+CRM itself keeps its web panel login apart from any API/module auth.
+
+Pages: `/dashboard` (this month's revenue/expenses/profit, outstanding invoices, open quotes,
+recent leads/invoices), and read-only list + detail views for `/customers`, `/leads`,
+`/quotes`, `/jobs`, `/invoices` (a customer's detail page cross-links its quotes/jobs/invoices;
+a quote/invoice's detail page shows its line items and computed totals; an invoice's detail page
+also shows its payments). **Read-only by design for this pass** — the Android app remains the
+one place that writes this data (via sync), matching how API_CONTRACT.md already frames the
+per-resource CRUD endpoints as secondary to the sync protocol; the web panel is this app's admin
+visibility/reporting layer, not a second write path. Suppliers/expenses/employees/payslips/
+compliance items don't have web views yet — not yet ported to this layer.
+
+Covered by `tests/WebUiTest.php` (login success/failure, CSRF, session redirect when
+unauthenticated, tenant scoping, logout) and `tests/BusinessLogoTest.php`.
 
 ## Why CodeIgniter 3 specifically, not CodeIgniter 4 or Laravel
 

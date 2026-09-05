@@ -49,9 +49,29 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | Examples:	my-controller/index	-> my_controller/index
 |		my-controller/my-method	-> my_controller/my_method
 */
-$route['default_controller'] = 'welcome';
+$route['default_controller'] = 'web_dashboard/index';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
+
+/*
+ * Web admin panel routes (Perfex-CRM-style, session-based — see
+ * Web_Controller's doc comment in application/core/MY_Controller.php).
+ * Entirely separate from the api/* routes below, which the Android app
+ * uses over JWT.
+ */
+$route['login'] = 'web_auth/login';
+$route['logout'] = 'web_auth/logout';
+$route['dashboard'] = 'web_dashboard/index';
+$route['customers'] = 'web_customers/index';
+$route['customers/(:any)'] = 'web_customers/show/$1';
+$route['leads'] = 'web_leads/index';
+$route['leads/(:any)'] = 'web_leads/show/$1';
+$route['quotes'] = 'web_quotes/index';
+$route['quotes/(:any)'] = 'web_quotes/show/$1';
+$route['jobs'] = 'web_jobs/index';
+$route['jobs/(:any)'] = 'web_jobs/show/$1';
+$route['invoices'] = 'web_invoices/index';
+$route['invoices/(:any)'] = 'web_invoices/show/$1';
 
 /*
  * OPS API routes — see docs/API_CONTRACT.md. Paths match the contract

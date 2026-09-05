@@ -1,0 +1,295 @@
+/*
+ * OPS web admin panel — an original Bootstrap-based admin layout in the
+ * same general genre as Perfex CRM's own panel (dark icon sidebar + light
+ * card-based content + a slim topbar), built from scratch for this app,
+ * not copied from Perfex's actual theme assets.
+ */
+
+:root {
+	--ops-sidebar-bg: #232b38;
+	--ops-sidebar-bg-active: #2e3a4d;
+	--ops-sidebar-text: #aab4c4;
+	--ops-sidebar-text-active: #ffffff;
+	--ops-accent: #2f6fed;
+	--ops-accent-dark: #1f4fb8;
+	--ops-body-bg: #f2f4f8;
+	--ops-card-border: #e6e9ef;
+	--ops-sidebar-width: 232px;
+}
+
+body {
+	background: var(--ops-body-bg);
+	font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	color: #2b3242;
+}
+
+/* Sidebar */
+.ops-sidebar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: var(--ops-sidebar-width);
+	background: var(--ops-sidebar-bg);
+	display: flex;
+	flex-direction: column;
+	z-index: 1030;
+}
+
+.ops-sidebar-brand {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 1.1rem 1.25rem;
+	color: #fff;
+	font-weight: 700;
+	font-size: 1.05rem;
+	text-decoration: none;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ops-sidebar-brand .ops-logo-mark {
+	width: 30px;
+	height: 30px;
+	border-radius: 8px;
+	background: var(--ops-accent);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 800;
+	font-size: 0.95rem;
+}
+
+.ops-sidebar-nav {
+	flex: 1;
+	overflow-y: auto;
+	padding: 0.75rem 0;
+}
+
+.ops-sidebar-section {
+	text-transform: uppercase;
+	font-size: 0.68rem;
+	letter-spacing: 0.06em;
+	color: #6b7386;
+	padding: 0.9rem 1.25rem 0.35rem;
+}
+
+.ops-sidebar-nav a {
+	display: flex;
+	align-items: center;
+	gap: 0.7rem;
+	padding: 0.55rem 1.25rem;
+	color: var(--ops-sidebar-text);
+	text-decoration: none;
+	font-size: 0.9rem;
+	border-left: 3px solid transparent;
+}
+
+.ops-sidebar-nav a i {
+	width: 18px;
+	text-align: center;
+	font-size: 0.95rem;
+}
+
+.ops-sidebar-nav a:hover {
+	background: rgba(255, 255, 255, 0.04);
+	color: #fff;
+}
+
+.ops-sidebar-nav a.active {
+	background: var(--ops-sidebar-bg-active);
+	color: var(--ops-sidebar-text-active);
+	border-left-color: var(--ops-accent);
+}
+
+/* Topbar + content */
+.ops-main {
+	margin-left: var(--ops-sidebar-width);
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.ops-topbar {
+	background: #fff;
+	border-bottom: 1px solid var(--ops-card-border);
+	padding: 0.75rem 1.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	position: sticky;
+	top: 0;
+	z-index: 1020;
+}
+
+.ops-topbar h1 {
+	font-size: 1.15rem;
+	font-weight: 700;
+	margin: 0;
+	color: #1c2333;
+}
+
+.ops-user-chip {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	font-size: 0.88rem;
+}
+
+.ops-avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: var(--ops-accent);
+	color: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	font-size: 0.85rem;
+}
+
+.ops-content {
+	padding: 1.5rem;
+	flex: 1;
+}
+
+/* Cards / widgets */
+.ops-stat-card {
+	background: #fff;
+	border: 1px solid var(--ops-card-border);
+	border-radius: 10px;
+	padding: 1.1rem 1.25rem;
+	border-top: 3px solid var(--ops-accent);
+	height: 100%;
+}
+
+.ops-stat-card .ops-stat-label {
+	font-size: 0.78rem;
+	color: #6b7386;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 0.35rem;
+}
+
+.ops-stat-card .ops-stat-value {
+	font-size: 1.6rem;
+	font-weight: 700;
+	color: #1c2333;
+}
+
+.ops-card {
+	background: #fff;
+	border: 1px solid var(--ops-card-border);
+	border-radius: 10px;
+	margin-bottom: 1.5rem;
+}
+
+.ops-card-header {
+	padding: 0.9rem 1.25rem;
+	border-bottom: 1px solid var(--ops-card-border);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.ops-card-header h2 {
+	font-size: 0.98rem;
+	font-weight: 700;
+	margin: 0;
+}
+
+.ops-card-body {
+	padding: 1.25rem;
+}
+
+.ops-table thead th {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #6b7386;
+	border-top: none;
+	white-space: nowrap;
+}
+
+.ops-table td, .ops-table th {
+	vertical-align: middle;
+}
+
+.ops-table tbody tr {
+	cursor: pointer;
+}
+
+.ops-table tbody tr:hover {
+	background: #f7f9fc;
+}
+
+/* Status badges — one flat color-tone family per status, same palette
+   idea as the Android app's StatusBadge component. */
+.ops-badge {
+	display: inline-block;
+	padding: 0.25em 0.65em;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 700;
+	text-transform: capitalize;
+}
+.ops-badge-neutral { background: #e9ecf3; color: #4b5468; }
+.ops-badge-info { background: #dbe9ff; color: #1f4fb8; }
+.ops-badge-warning { background: #fff1d6; color: #8a5a00; }
+.ops-badge-success { background: #dcf5e3; color: #1a7f3c; }
+.ops-badge-danger { background: #fde1e1; color: #b3261e; }
+
+/* Login page */
+.ops-login-wrap {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: linear-gradient(160deg, #1a2233 0%, #232b38 100%);
+}
+
+.ops-login-card {
+	background: #fff;
+	border-radius: 14px;
+	padding: 2.25rem 2.25rem 2rem;
+	width: 100%;
+	max-width: 380px;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.ops-login-brand {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-bottom: 1.5rem;
+	font-weight: 800;
+	font-size: 1.2rem;
+}
+
+.ops-login-brand .ops-logo-mark {
+	width: 34px;
+	height: 34px;
+	border-radius: 9px;
+	background: var(--ops-accent);
+	color: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 800;
+}
+
+.ops-detail-row {
+	display: flex;
+	padding: 0.5rem 0;
+	border-bottom: 1px solid var(--ops-card-border);
+	font-size: 0.9rem;
+}
+.ops-detail-row:last-child { border-bottom: none; }
+.ops-detail-label { width: 170px; flex-shrink: 0; color: #6b7386; }
+.ops-detail-value { font-weight: 600; color: #1c2333; }
+
+@media (max-width: 900px) {
+	.ops-sidebar { transform: translateX(-100%); }
+	.ops-main { margin-left: 0; }
+}
