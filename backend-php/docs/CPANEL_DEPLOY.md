@@ -8,7 +8,8 @@ that.
 You'll need two things from me before you start, both already prepared:
 
 - **`ops-cpanel-backend.zip`** — the whole app, including `vendor/` already built (since there's
-  no Composer on the host to build it for you).
+  no Composer on the host to build it for you). Rebuild it any time with
+  `scripts/build-cpanel-package.sh`.
 - **`CPANEL_SCHEMA.sql`** — the full database schema, ready to import via phpMyAdmin (since
   there's no shell to run the migration command).
 
@@ -114,27 +115,34 @@ You should see exactly:
   are disabled — contact your host; this is rare on cPanel but not unheard of on some
   budget plans.
 
-## 7. Point the Android app at it, and create your first business
+## 7. Create your first business, and point the Android app at it
 
-Install the debug APK (see the main README/whatever channel you got it through), then:
+Open `https://api.yourdomain.com` in a browser. You'll get the landing page; **Set up your
+business** takes you to `/register`, which creates the business, the owner user and the login in
+one form. (The app's own first-run sign-up does exactly the same thing through
+`POST /api/auth/register/` — either route produces the same account, so it doesn't matter which
+one you use first.)
 
-1. Open the app → go to **Business Profile** → **Developer options** → **Connection
-   Diagnostics**.
+Then install the debug APK and connect it:
+
+1. Open the app → **Business Profile** → **Developer options** → **Connection Diagnostics**.
 2. Enter `https://api.yourdomain.com` as the server URL override and save.
-3. Run "Test connection" (hits `/api/health/`) and "Test authentication" — the second one will
-   fail until you've registered a business, which is expected.
-4. Go through the app's own sign-up/business setup flow (the same first-run screen it shows a
-   brand new install) — this calls `POST /api/auth/register/` and creates your business, owner
-   user, and login in one step. There's no separate web-based sign-up; this is the one place a
-   business gets created.
-5. Once registered, log in at `https://api.yourdomain.com/login` with that same email/password
-   to see the web admin panel (dashboard, customers, leads, quotes, jobs, invoices).
+3. Run "Test connection" (hits `/api/health/`), then "Test authentication".
+4. Log in with the email and password you just registered. The phone is where records get
+   created and edited; they appear in the web panel as they sync.
+
+`/settings` in the panel shows this same server URL and a count of everything that has synced
+so far, which is the quickest way to confirm a phone is actually talking to this server.
 
 ## What you get vs. what's still missing
 
-- The API (everything the Android app uses: auth, sync, receipt/photo uploads) and the read-only
-  web admin panel both work identically to how they were verified in this sandbox — same code,
-  same tests, no cPanel-specific shortcuts.
+- The API (everything the Android app uses: auth, sync, receipt/photo uploads) and the web admin
+  panel both work identically to how they were verified in this sandbox — same code, same tests,
+  no cPanel-specific shortcuts. The panel covers leads, customers, quotes, invoices, payments,
+  jobs, the visit schedule, expenses, suppliers, employees, payslips, compliance, reports and
+  settings; it is read-only apart from sign-up, because the phone is the write path.
+- The panel loads no CDN assets — no Bootstrap, no icon font, no web font. If your host blocks
+  outbound HTTP from the web server (some budget plans do), nothing about the panel degrades.
 - **No automated backups are configured by this deployment** — set up cPanel's own database/file
   backup schedule (**Backup** in cPanel) yourself; this guide doesn't do that for you.
 - **No email is configured** — nothing in this app currently sends email (no password-reset

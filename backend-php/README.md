@@ -16,9 +16,10 @@ php index.php migrate
 php -S 127.0.0.1:8080 router.php   # dev only — see "Production" below for real deployment
 ```
 
-The JSON API Android talks to lives under `/api/*`. Visiting `/` in a browser goes to the web
-admin panel (see "Web admin panel" below) — register a business via `POST /api/auth/register/`
-first (there's no web-based sign-up yet), then log in at `/login` with that email/password.
+The JSON API Android talks to lives under `/api/*`. Visiting `/` in a browser gets the public
+landing page; `/register` creates a business straight from the web and `/login` signs into the
+admin panel (see "Web admin panel" below). A web sign-up and a `POST /api/auth/register/` create
+the same account — either one can then log in on the phone or in the panel.
 
 `router.php` exists only because PHP's built-in server has no mod_rewrite of its own; a real
 deployment serves this through Apache/nginx with URL rewriting to `index.php`, same as any CI3
@@ -40,7 +41,7 @@ against the shared dev database — there's no separate ephemeral test database 
 test runner gave us, since PHPUnit here doesn't manage schema/fixtures itself. See
 `tests/ApiTestCase.php`.
 
-Current coverage (49 tests): health check, register/login/refresh, auth-required rejection,
+Current coverage (67 tests) — API: health check, register/login/refresh, auth-required rejection,
 cross-tenant scoping, the sync protocol (push/pull/conflict/idempotency/last-write-wins), quote
 + job + invoice document numbering (sequential, per-business, assigned once on first successful
 sync and never reassigned), quote/invoice totals recomputed from line items (including a
@@ -49,7 +50,11 @@ machine (sent → partially_paid → paid, and back down on a reversed payment, 
 invoices never touched), expense VAT-inclusive extraction + validation (amount > 0, date ≤
 tomorrow), payslip net-pay + validation (deductions ≤ gross, period_end ≥ period_start), visit
 photo upload, and all three Reports endpoints (including CSV export and the this_month/all_time
-expense-category split).
+expense-category split). Web panel (`tests/WebPanelPagesTest.php`): the landing and register
+pages served to a logged-out visitor, a web sign-up that then logs in against the JSON API, the
+short-password and duplicate-email rejections, all sixteen module pages rendering without a PHP
+or database error, filters composing with search, global search, the reports CSV export's
+columns, a 404 for another business's record id, and an invoice detail's recomputed totals.
 
 ## What's ported so far
 
@@ -114,25 +119,74 @@ access) reliably populates `$_SERVER` but not always `getenv()`.
 
 ## Web admin panel
 
-A server-rendered, Bootstrap-based admin panel in the same general genre as Perfex CRM's own
-panel (dark icon sidebar, light card-based content, a slim topbar) — an **original layout**
-built for this app from scratch, not copied from Perfex's actual theme assets/CSS/icons.
-Session-cookie login (`/login`, `/logout`), completely separate from the JWT Android uses (see
-`Web_Controller`'s doc comment in `application/core/MY_Controller.php`) — matching how Perfex
-CRM itself keeps its web panel login apart from any API/module auth.
+A server-rendered admin panel in the same general genre as Perfex CRM's own — dark sidebar rail
+with grouped navigation, light card-and-table content, a slim topbar — an **original layout and
+stylesheet** built for this app, not copied from Perfex's theme assets, CSS or icons. Session-
+cookie login, completely separate from the JWT Android uses (see `Web_Controller`'s doc comment
+in `application/core/MY_Controller.php`), matching how Perfex CRM itself keeps its panel login
+apart from any API auth.
 
-Pages: `/dashboard` (this month's revenue/expenses/profit, outstanding invoices, open quotes,
-recent leads/invoices), and read-only list + detail views for `/customers`, `/leads`,
-`/quotes`, `/jobs`, `/invoices` (a customer's detail page cross-links its quotes/jobs/invoices;
-a quote/invoice's detail page shows its line items and computed totals; an invoice's detail page
-also shows its payments). **Read-only by design for this pass** — the Android app remains the
-one place that writes this data (via sync), matching how API_CONTRACT.md already frames the
-per-resource CRUD endpoints as secondary to the sync protocol; the web panel is this app's admin
-visibility/reporting layer, not a second write path. Suppliers/expenses/employees/payslips/
-compliance items don't have web views yet — not yet ported to this layer.
+### Public pages
 
-Covered by `tests/WebUiTest.php` (login success/failure, CSRF, session redirect when
-unauthenticated, tenant scoping, logout) and `tests/BusinessLogoTest.php`.
+`/` is a landing page describing the product, `/register` creates a business and its first user
+in one form, `/login` and `/logout` handle the session. A web sign-up and a `POST
+/api/auth/register/` produce the same account, so an owner can sign up on the laptop and log
+straight into the phone app with those credentials — `tests/WebPanelPagesTest.php` asserts
+exactly that.
+
+### Modules
+
+`/dashboard`, then list + detail views for `/leads`, `/customers`, `/quotes`, `/invoices`,
+`/payments`, `/jobs`, `/schedule` (visits), `/expenses`, `/suppliers`, `/employees`,
+`/payslips` and `/compliance`, plus `/reports`, `/settings` and a global `/search`. Every list
+shares one implementation — `Web_resource_controller` in `application/core/MY_Controller.php`
+handles search, status filtering, sorting and pagination from a handful of declared properties,
+so a module page is a subclass and two views rather than a twelfth copy of the same query code.
+Related names (a lead's customer, an expense's supplier) resolve through `name_map()`, one
+batched query per column instead of one per row.
+
+`/reports` and `/dashboard` read from `Insights_model`, which is also what the JSON reports
+endpoints use, so the screen, the CSV export and the API can't disagree about what a month's
+revenue was. Revenue is cash-basis throughout (money actually received, dated by
+`payments.paid_date`), which is the definition the CSV header and the page subtitle both state.
+
+**Read-only by design.** The Android app remains the one place this data is written, via sync —
+API_CONTRACT.md already frames the per-resource CRUD endpoints as secondary to the sync
+protocol. The panel is the reporting and visibility layer, not a second write path. The two
+exceptions are the ones that have to be: creating an account, and the reports date-range form.
+
+### Design system
+
+`assets/web/app.css` takes its palette verbatim from the Android app's Design System v3
+(`android/app/src/main/kotlin/com/ops/app/ui/theme/Color.kt`), so the panel and the phone are
+visibly one product: blue is interaction, green means success and only success, amber means
+needs-attention, red means failed. Everything else is ink on neutral. Dark mode follows the
+system by default and can be pinned either way from the topbar (stored in `localStorage`).
+
+The two chart series carry their own `--chart-revenue` / `--chart-expense` tokens rather than
+reusing `--primary` / `--warning`: the UI tokens are tuned for text and buttons, and in dark mode
+`--primary` (#9FCBFF) is too light and too low-chroma to work as a fill — it reads grey. Both
+pairs were run through a categorical-palette validator per mode and pass on lightness band,
+chroma floor, colour-blind separation, normal-vision separation and contrast against the
+surface. The comment above the tokens records the numbers.
+
+**No CDN dependencies at all** — no Bootstrap, no Font Awesome, no web fonts. Icons are inline
+SVG from `ops_icon()` in `application/helpers/web_helper.php`, and the type stack is the
+system UI font. Shared cPanel hosting can sit behind an outbound firewall, and a panel that
+loses its stylesheet when a CDN is unreachable is not acceptable for the one screen an owner
+checks their money on.
+
+### Verification
+
+`tests/WebPanelPagesTest.php` drives every route over real HTTP with a real session cookie;
+`tests/WebUiTest.php` covers the session mechanics underneath it (login success and failure,
+CSRF, the redirect when unauthenticated, tenant scoping, logout) and `tests/BusinessLogoTest.php`
+the logo upload.
+
+Layout was checked by screenshotting each page through Chrome DevTools Protocol at 1440px and at
+an emulated 390px phone, asserting `scrollWidth == clientWidth` on each — worth noting that
+Chromium floors `--window-size` at 500px, so a naive headless "mobile" screenshot is a desktop
+layout cropped to the requested width and will hide every responsive bug you have.
 
 ## Why CodeIgniter 3 specifically, not CodeIgniter 4 or Laravel
 
