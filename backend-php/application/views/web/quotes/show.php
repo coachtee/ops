@@ -11,7 +11,7 @@
 	<div class="muted"><?= html_escape(trim($business['phone'].' '.$business['email'])) ?></div>
 </div>
 
-<div class="grid split-8-4" style="grid-template-columns:minmax(0,8fr) minmax(0,4fr);">
+<div class="grid split-8-4">
 	<div class="card">
 		<div class="record-hero">
 			<div>
@@ -30,7 +30,7 @@
 		</div>
 
 		<div class="table-wrap">
-			<table class="table">
+			<table class="table doc-table">
 				<thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Unit price</th><th class="right">Line total</th></tr></thead>
 				<tbody>
 					<?php if (empty($line_items)): ?>
@@ -55,6 +55,13 @@
 				</tfoot>
 			</table>
 		</div>
+		<?php $this->load->view('web/partials/doc_totals', array('rows' => array_values(array_filter(array(
+			array('label' => 'Subtotal', 'amount' => ops_money($quote['subtotal'])),
+			(float) $quote['discount_amount'] > 0
+				? array('label' => 'Discount', 'amount' => '&minus; '.ops_money($quote['discount_amount'])) : NULL,
+			array('label' => 'VAT '.($quote['is_vat_applicable'] ? '(15%)' : '(not applicable)'), 'amount' => ops_money($quote['vat_amount'])),
+			array('label' => 'Total', 'amount' => ops_money($quote['total']), 'strong' => TRUE),
+		))))); ?>
 
 		<?php if (!empty($quote['notes']) || !empty($quote['terms'])): ?>
 			<div class="card-foot">

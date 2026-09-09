@@ -25,7 +25,7 @@ $balance_amount = abs($outstanding);
 	<?php endif; ?>
 </div>
 
-<div class="grid" style="grid-template-columns:minmax(0,8fr) minmax(0,4fr);">
+<div class="grid split-8-4">
 	<div class="card">
 		<div class="record-hero">
 			<div>
@@ -44,7 +44,7 @@ $balance_amount = abs($outstanding);
 		</div>
 
 		<div class="table-wrap">
-			<table class="table">
+			<table class="table doc-table">
 				<thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Unit price</th><th class="right">Line total</th></tr></thead>
 				<tbody>
 					<?php if (empty($line_items)): ?>
@@ -71,6 +71,15 @@ $balance_amount = abs($outstanding);
 				</tfoot>
 			</table>
 		</div>
+		<?php $this->load->view('web/partials/doc_totals', array('rows' => array_values(array_filter(array(
+			array('label' => 'Subtotal', 'amount' => ops_money($invoice['subtotal'])),
+			(float) $invoice['discount_amount'] > 0
+				? array('label' => 'Discount', 'amount' => '&minus; '.ops_money($invoice['discount_amount'])) : NULL,
+			array('label' => 'VAT '.($invoice['is_vat_applicable'] ? '(15%)' : '(not applicable)'), 'amount' => ops_money($invoice['vat_amount'])),
+			array('label' => 'Total', 'amount' => ops_money($invoice['total']), 'strong' => TRUE),
+			array('label' => 'Paid', 'amount' => ops_money($invoice['amount_paid'])),
+			array('label' => $balance_label, 'amount' => ops_money($balance_amount), 'strong' => TRUE),
+		))))); ?>
 
 		<?php if (!empty($invoice['notes']) || !empty($invoice['terms'])): ?>
 			<div class="card-foot">

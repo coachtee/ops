@@ -631,8 +631,13 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 .split-7-5 { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
 .split-5-7 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
 .split-4-8 { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); }
+.split-8-4 { grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); }
 @media (max-width: 1100px) {
-	.grid-2, .grid-3, .split-7-5, .split-5-7, .split-4-8 { grid-template-columns: 1fr; }
+	/* minmax(0, 1fr), not 1fr: a bare 1fr track is minmax(auto, 1fr), and
+	   that auto floor is the content's min-content width — a wide table
+	   inside pushed the track past the viewport and scrolled the whole
+	   page sideways instead of scrolling inside its own .table-wrap. */
+	.grid-2, .grid-3, .split-7-5, .split-5-7, .split-4-8, .split-8-4 { grid-template-columns: minmax(0, 1fr); }
 }
 /* Opt out of the default stretch when one column is much shorter than the
    other — a card padded out to match its neighbour reads as unfinished. */
@@ -643,6 +648,22 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
    -------------------------------------------------------------------------- */
 
 .table-wrap { overflow-x: auto; }
+
+/* Quote/invoice totals, narrow-screen form — see partials/doc_totals.php for
+   why this exists rather than restyling the table foot. */
+.doc-totals { display: none; margin: 0; }
+.doc-totals > div {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 14px;
+	padding: 10px 14px;
+	border-top: 1px solid var(--border);
+}
+.doc-totals dt { color: var(--text-muted); margin: 0; }
+.doc-totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+.doc-totals .is-total dt { color: var(--text); font-weight: 700; }
+.doc-totals .is-total dd { font-weight: 700; font-size: 15px; }
 
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { padding: 11px 16px; text-align: left; }
@@ -1016,6 +1037,22 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 	   grew to 80px. */
 	.table th, .table td { white-space: nowrap; padding: 10px 12px; }
 
+	/* A quote/invoice line-item table is the one place scrolling is the wrong
+	   answer: its tfoot labels sit in the frozen left columns while Total and
+	   Outstanding scroll out of sight, so you read a label with no number.
+	   Drop the unit price (quantity x unit price is still on the row, and the
+	   line total is the figure that matters) and let the description wrap, so
+	   the whole document fits the screen. The tfoot rows have only two cells,
+	   so nth-child(3) never touches them and their colspan just clamps. */
+	.doc-table thead th:nth-child(3),
+	.doc-table tbody td:nth-child(3) { display: none; }
+	.doc-table thead th:first-child,
+	.doc-table tbody td:first-child { white-space: normal; min-width: 130px; }
+	.doc-table th, .doc-table td { padding: 10px 10px; }
+	/* Hand the totals over to the list form. */
+	.doc-table tfoot { display: none; }
+	.doc-totals { display: block; }
+
 	/* Scroll affordance, since touch hides the scrollbar: the first two
 	   gradients are painted on the scroll port and the second two on the
 	   content, so reaching an edge covers that edge's shadow and the fade
@@ -1045,5 +1082,15 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 	.card + .card { margin-top: 12px; }
 	a { color: inherit; text-decoration: none; }
 	.print-head { display: block !important; }
+	/* A quote or an invoice prints as the full document whatever the window
+	   width is: the narrow-screen rules are keyed off page width, not media
+	   type, so printing from a narrow window would otherwise emit the phone
+	   layout — no unit prices, and totals as a list. */
+	.doc-totals { display: none !important; }
+	.doc-table tfoot { display: table-footer-group !important; }
+	.doc-table thead th:nth-child(3),
+	.doc-table tbody td:nth-child(3) { display: table-cell !important; }
+	.doc-table thead th:first-child,
+	.doc-table tbody td:first-child { min-width: 0; }
 }
 .print-head { display: none; }
