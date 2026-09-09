@@ -72,6 +72,11 @@
 				       value="<?= html_escape($search_q ?? '') ?>" aria-label="Search">
 			</form>
 
+			<!-- Below 640px the input is hidden (it squeezes to ~90px between the
+			     hamburger and the avatar); this takes its place. -->
+			<a class="icon-btn search-link" href="<?= site_url('search') ?>"
+			   aria-label="Search" title="Search"><?= ops_icon('search') ?></a>
+
 			<button type="button" class="icon-btn" data-theme-toggle aria-label="Toggle dark mode" title="Toggle dark mode">
 				<span data-theme-icon-light><?= ops_icon('moon') ?></span>
 				<span data-theme-icon-dark class="hide"><?= ops_icon('sun') ?></span>

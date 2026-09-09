@@ -37,6 +37,9 @@ $y_for = function ($value) use ($pad_t, $plot_h, $max) {
 	return $pad_t + $plot_h - ($plot_h * (min((float) $value, $max) / $max));
 };
 ?>
+<!-- Scroll port: on a phone a 720-wide viewBox squeezed to 320 renders the
+     axis text at ~4px. The chart keeps its size and the reader swipes. -->
+<div class="chart-scroll">
 <svg class="chart" viewBox="0 0 <?= $w ?> <?= $h ?>" role="img"
      aria-label="Revenue and expenses per month for the last <?= $count ?> months">
 
@@ -81,6 +84,7 @@ $y_for = function ($value) use ($pad_t, $plot_h, $max) {
 		<text class="axis-label" x="<?= round($centre, 1) ?>" y="<?= $h - 9 ?>" text-anchor="middle"><?= html_escape(ops_month_label($m['month'])) ?></text>
 	<?php endforeach; ?>
 </svg>
+</div>
 
 <div class="chart-legend mt-2">
 	<span class="key"><span class="swatch swatch-revenue"></span> Revenue (payments received)</span>

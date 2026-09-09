@@ -85,7 +85,11 @@ function ops_icon($name, $class = '')
 	{
 		return '';
 	}
-	$class_attr = $class !== '' ? ' class="'.html_escape($class).'"' : '';
+	// Always carries `icon`, which sets a 16px default in app.css. Without a
+	// baseline size an icon dropped into a context that has no `… svg` rule
+	// of its own (a .chip, say) is a flex item with no basis and grows to
+	// whatever the row allows.
+	$class_attr = ' class="icon'.($class !== '' ? ' '.html_escape($class) : '').'"';
 	return '<svg'.$class_attr.' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
 		.'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
 		.$paths[$name].'</svg>';

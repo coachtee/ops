@@ -143,6 +143,11 @@
 		--neutral-weak-text: #B4BCC8;
 		--sidebar-bg: #0A0E14;
 		--sidebar-text: #8FA0B5;
+		/* Must match :root[data-theme="dark"] — see the note on
+		   --chart-revenue. Without these, system-dark without an explicit
+		   toggle paints the light-surface pair on a dark surface. */
+		--chart-revenue: #3D8FE0;
+		--chart-expense: #C1861F;
 		--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
 		--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
 		--shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
@@ -210,6 +215,10 @@ a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 img, svg { vertical-align: middle; }
+/* Baseline size for ops_icon() output. Deliberately a single class so any
+   `.component svg` rule outranks it — this is only the floor for contexts
+   that never sized their icons. */
+.icon { width: 16px; height: 16px; flex-shrink: 0; }
 img { max-width: 100%; }
 
 hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
@@ -375,6 +384,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 	font-family: inherit;
 }
 .search input::placeholder { color: var(--text-subtle); }
+/* Two class names deep so it beats `.icon-btn { display: grid }`, which is
+   defined below this and would otherwise win on source order. */
+.topbar .search-link { display: none; }
 .search input:focus { outline: none; border-color: var(--primary); background: var(--surface); }
 .search svg { position: absolute; left: 10px; top: 9px; width: 17px; height: 17px; color: var(--text-subtle); }
 
@@ -438,12 +450,18 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 	body.nav-open .nav-scrim { display: block; }
 	.main { margin-left: 0; }
 	.nav-toggle { display: grid; }
-	.search { width: auto; flex: 1; max-width: 320px; }
+	.topbar .search { width: auto; flex: 1; max-width: 320px; }
 }
 @media (max-width: 640px) {
 	.content { padding: 14px; }
 	.crumbs { display: none; }
-	.search { max-width: none; }
+	/* The topbar input squeezes to ~90px between the hamburger and the
+	   avatar and shows four characters of its own placeholder; send people to
+	   the search page instead. Scoped to .topbar — every list toolbar reuses
+	   this class for its own search box, which must stay. */
+	.topbar .search { display: none; }
+	.topbar .search-link { display: grid; }
+	.page-head .page-title { font-size: 19px; line-height: 25px; }
 }
 
 /* --------------------------------------------------------------------------
@@ -616,6 +634,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 @media (max-width: 1100px) {
 	.grid-2, .grid-3, .split-7-5, .split-5-7, .split-4-8 { grid-template-columns: 1fr; }
 }
+/* Opt out of the default stretch when one column is much shorter than the
+   other — a card padded out to match its neighbour reads as unfinished. */
+.grid.items-start { align-items: start; }
 
 /* --------------------------------------------------------------------------
    8. Tables
@@ -693,7 +714,9 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 	color: var(--text-muted);
 	font-size: 12.5px;
 	font-weight: 600;
+	white-space: nowrap;
 }
+.chip svg { width: 14px; height: 14px; }
 .chip:hover { background: var(--surface-sunken); text-decoration: none; color: var(--text); }
 .chip.active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .chip.active:hover { background: var(--primary-hover); color: var(--on-primary); }
@@ -901,6 +924,7 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
    13. Charts (inline SVG — no chart library)
    -------------------------------------------------------------------------- */
 
+.chart-scroll { overflow-x: auto; }
 .chart { width: 100%; height: auto; display: block; overflow: visible; }
 /* Recessive grid and axes — the data is the ink. */
 .chart .grid-line { stroke: var(--border); stroke-width: 1; }
@@ -966,7 +990,50 @@ h1, h2, h3, h4 { margin: 0; font-weight: 600; }
 }
 
 /* --------------------------------------------------------------------------
-   15. Print — quotes/invoices come out as a clean document
+   15. Responsive refinements
+   --------------------------------------------------------------------------
+   Last on purpose: these override component rules of equal specificity, so
+   they only win if they come after the components that define them.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 700px) {
+	/* Squeezed into 320px the 720-wide viewBox renders its axis text at about
+	   4px. Keep the plot readable and let the reader swipe it instead. */
+	.chart-scroll .chart { min-width: 600px; }
+}
+
+@media (max-width: 640px) {
+	/* Two-up KPI tiles. auto-fit drops to one column at this width, which
+	   turns four tiles into ~460px of scrolling before any content appears. */
+	.stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+	.stat { padding: 12px 13px; }
+	.stat-label { font-size: 10px; margin-bottom: 5px; }
+	.stat-value { font-size: 19px; line-height: 25px; letter-spacing: -0.3px; }
+	.stat-meta { font-size: 11px; margin-top: 4px; }
+
+	/* Let a wide table scroll rather than fold every cell into a tower —
+	   unwrapped, "INV-0004" and "09 Sep 2026" each took three lines and rows
+	   grew to 80px. */
+	.table th, .table td { white-space: nowrap; padding: 10px 12px; }
+
+	/* Scroll affordance, since touch hides the scrollbar: the first two
+	   gradients are painted on the scroll port and the second two on the
+	   content, so reaching an edge covers that edge's shadow and the fade
+	   only shows on a side that still has something off-screen. */
+	.table-wrap {
+		background:
+			linear-gradient(to right, var(--surface) 40%, transparent) left center,
+			linear-gradient(to left, var(--surface) 40%, transparent) right center,
+			radial-gradient(farthest-side at 0 50%, rgba(26, 28, 30, 0.22), rgba(26, 28, 30, 0)) left center,
+			radial-gradient(farthest-side at 100% 50%, rgba(26, 28, 30, 0.22), rgba(26, 28, 30, 0)) right center;
+		background-repeat: no-repeat;
+		background-size: 34px 100%, 34px 100%, 20px 100%, 20px 100%;
+		background-attachment: local, local, scroll, scroll;
+	}
+}
+
+/* --------------------------------------------------------------------------
+   16. Print — quotes/invoices come out as a clean document
    -------------------------------------------------------------------------- */
 
 @media print {

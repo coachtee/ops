@@ -60,7 +60,7 @@
 	</div>
 </div>
 
-<div class="grid split-7-5">
+<div class="grid split-7-5 items-start">
 	<div class="card">
 		<div class="card-head">
 			<h2>Where the money went</h2>
@@ -109,7 +109,17 @@
 			<dl class="dl">
 				<dt>VAT collected</dt><dd><?= ops_money($vat['vat_collected']) ?></dd>
 				<dt>VAT paid</dt><dd><?= ops_money($vat['vat_paid']) ?></dd>
-				<dt>Net position</dt><dd class="t-title-md"><?= ops_money($vat['net_vat_position']) ?></dd>
+				<?php
+				// "R -241.30" on its own reads like a bug to the person checking it.
+				// Sign has a plain meaning here: collected more than you paid means
+				// you owe SARS; the other way round means you're due a refund.
+				$net = (float) $vat['net_vat_position'];
+				?>
+				<dt>Net position</dt>
+				<dd class="t-title-md">
+					<?= ops_money(abs($net)) ?>
+					<span class="t-body-sm muted"><?= $net < 0 ? 'refund due to you' : 'payable to SARS' ?></span>
+				</dd>
 			</dl>
 
 			<div class="alert alert-info mt-3">

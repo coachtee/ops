@@ -14,10 +14,17 @@ $address = array_filter(array($customer['address_line1'], $customer['address_lin
 		<div class="stat-value"><?= ops_money_compact($invoiced) ?></div>
 		<div class="stat-meta">Excludes drafts and cancelled</div>
 	</div>
-	<div class="stat <?= $outstanding > 0 ? 'accent-warning' : 'accent-success' ?>">
-		<div class="stat-label"><?= ops_icon('clock') ?> Outstanding</div>
-		<div class="stat-value"><?= ops_money_compact($outstanding) ?></div>
-		<div class="stat-meta"><?= $outstanding > 0 ? 'Still owed to you' : 'All settled' ?></div>
+	<?php
+	// Same three-way split the invoice detail makes: a negative balance means
+	// they have paid more than was invoiced, and "-R 1,437.50 / All settled"
+	// reads as a bug rather than as credit sitting on the account.
+	$credit = $outstanding < 0;
+	$owing = $outstanding > 0;
+	?>
+	<div class="stat <?= $owing ? 'accent-warning' : 'accent-success' ?>">
+		<div class="stat-label"><?= ops_icon('clock') ?> <?= $credit ? 'Credit on account' : 'Outstanding' ?></div>
+		<div class="stat-value"><?= ops_money_compact(abs($outstanding)) ?></div>
+		<div class="stat-meta"><?= $owing ? 'Still owed to you' : ($credit ? 'Paid more than invoiced' : 'All settled') ?></div>
 	</div>
 	<div class="stat accent-neutral">
 		<div class="stat-label"><?= ops_icon('briefcase') ?> Jobs</div>
@@ -26,7 +33,7 @@ $address = array_filter(array($customer['address_line1'], $customer['address_lin
 	</div>
 </div>
 
-<div class="grid split-4-8">
+<div class="grid split-4-8 items-start">
 	<div class="card">
 		<div class="card-head"><h2>Contact</h2></div>
 		<div class="card-body">
