@@ -49,29 +49,52 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | Examples:	my-controller/index	-> my_controller/index
 |		my-controller/my-method	-> my_controller/my_method
 */
-$route['default_controller'] = 'web_dashboard/index';
+$route['default_controller'] = 'web_landing/index';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
 /*
- * Web admin panel routes (Perfex-CRM-style, session-based — see
- * Web_Controller's doc comment in application/core/MY_Controller.php).
- * Entirely separate from the api/* routes below, which the Android app
- * uses over JWT.
+ * Web panel routes (session-based — see Web_Controller's doc comment in
+ * application/core/MY_Controller.php). Entirely separate from the api/*
+ * routes below, which the Android app uses over JWT.
+ *
+ * Order matters: CI3 takes the first matching rule, so a literal path is
+ * always declared before the (:any) detail route that would otherwise
+ * swallow it (e.g. reports/export before any reports/(:any)).
  */
 $route['login'] = 'web_auth/login';
+$route['register'] = 'web_auth/register';
 $route['logout'] = 'web_auth/logout';
 $route['dashboard'] = 'web_dashboard/index';
-$route['customers'] = 'web_customers/index';
-$route['customers/(:any)'] = 'web_customers/show/$1';
+$route['search'] = 'web_search/index';
+$route['settings'] = 'web_settings/index';
+
+$route['reports/export'] = 'web_reports/export';
+$route['reports'] = 'web_reports/index';
+
 $route['leads'] = 'web_leads/index';
 $route['leads/(:any)'] = 'web_leads/show/$1';
+$route['customers'] = 'web_customers/index';
+$route['customers/(:any)'] = 'web_customers/show/$1';
 $route['quotes'] = 'web_quotes/index';
 $route['quotes/(:any)'] = 'web_quotes/show/$1';
-$route['jobs'] = 'web_jobs/index';
-$route['jobs/(:any)'] = 'web_jobs/show/$1';
 $route['invoices'] = 'web_invoices/index';
 $route['invoices/(:any)'] = 'web_invoices/show/$1';
+$route['payments'] = 'web_payments/index';
+
+$route['jobs'] = 'web_jobs/index';
+$route['jobs/(:any)'] = 'web_jobs/show/$1';
+$route['schedule'] = 'web_visits/index';
+
+$route['expenses'] = 'web_expenses/index';
+$route['suppliers'] = 'web_suppliers/index';
+$route['suppliers/(:any)'] = 'web_suppliers/show/$1';
+
+$route['employees'] = 'web_employees/index';
+$route['employees/(:any)'] = 'web_employees/show/$1';
+$route['payslips'] = 'web_payslips/index';
+
+$route['compliance'] = 'web_compliance/index';
 
 /*
  * OPS API routes — see docs/API_CONTRACT.md. Paths match the contract
